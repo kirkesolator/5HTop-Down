@@ -32,7 +32,7 @@ void setup()
 // Main loop
 void loop()
 {
-  // Run through the 4 first stimulus patterns spaced by 2s
+  // Run through the 4 first stimulus patterns
   for (int i = 0; i < 4; i++)
   {
     for (int j = 0; j < 3; j++)
@@ -45,7 +45,7 @@ void loop()
       digitalWrite(STIMmatrix1[i][j],LOW);
     }
   }
-  // Run through the 4 better stimulus patterns spaced by 2s
+  // Run through the 4 better stimulus patterns
   for (int i = 0; i < 4; i++)
   {
     for (int j = 0; j < 5; j++)
