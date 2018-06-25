@@ -16,12 +16,22 @@ int doTime = 0;
 // General parameters
 int state = 0;
 int nextstate = 0;
-const int outpins[] = {22, 23, 24, 25, 26, 27, 28, 29, 31};
-int LEDpins[4][5] = {
+const int outpins[] = {22, 23, 24, 25, 26, 27, 28, 29, 31}; // All out pins
+int LEDpins[4][5] = { // Pins that drive the various LED signals used
   {28,26,24,29,23},
   {24,29,23,25,27},
   {23,25,27,22,28},
   {27,22,28,26,24}
+};
+int trialState[8][3] = { // Simplified trial type joint prob matrix
+  {1, 2, 85},
+  {2, 1, 85},
+  {3, 6, 85},
+  {4, 5, 60},
+  {5, 4, 60},
+  {6, 3, 85},
+  {7, 8, 85},
+  {8, 7, 85}
 };
 int rPin[] = {31};
 int i;
