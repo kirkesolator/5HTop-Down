@@ -13,6 +13,13 @@ int unsigned long pTimer;
 int unsigned long tTimer;
 bool doTime = false;
 
+// -----Lick parameters-----
+int lickState = 1; // Initial lick state
+int lickStateP; // Previous lick state
+int lickNum; // Poke counter
+int lickON;
+int lickOFF;
+
 // -----ID variables-----
 int mouseID;
 String humanID;
@@ -36,6 +43,7 @@ int trialStates[8][3] = { // Simplified trial type joint prob matrix
   {8, 7, 85}
 };
 int rPin[] = {31}; // Reward valve pin
+int lPin = 10; // Lick pin
 int usePins[5]; // Initialise
 
 // -----General parameters-----
@@ -155,6 +163,20 @@ void setup()
 //:::::::::::::::::::::::::MAIN LOOP:::::::::::::::::::::::::
 void loop()
 {
+  // ..........Read and compare lick states..........
+  lickStateP = lickState; // store previous lick state
+  lickState = digitalRead(lPin); // record new lick state
+
+  // ..........Poke Detection..........
+  if (lickState-lickStateP < 0) {
+    lickNum = lickNum + 1; // Update lick counter
+    Serial.print("."); // Print to serial monitor
+    lickON = millis(); // Record lick entry
+  }
+  else if (lickState-lickStateP > 0) { // Record lick exit
+    lickOFF = millis();
+  }
+
   // ..........Timer..........
   if (millis() - pTimer >= tTimer)
   {
