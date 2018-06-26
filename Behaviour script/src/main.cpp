@@ -1,6 +1,6 @@
 #include <Arduino.h>
 
-// Declare some parameters
+// -----Duration parameters-----
 const int tITI = 2000; // ITI duration
 const int tS2 = 500; // Stimulus S2 duration
 const int tS1 = 500; // Stimulus S1 duration
@@ -8,14 +8,16 @@ const int tReward = 20; // Reward water flow duration
 const int tTrace = 500; // Trace period duration
 const int tDelay = 10; // Reward onset delay
 
-// Timer parameters
+// -----Timer parameters-----
 int unsigned long pTimer;
 int unsigned long tTimer;
-int doTime = 0;
+bool doTime = false;
 
-// General parameters
-int state = 0;
-int nextstate = 0;
+// -----ID variables-----
+int mouseID;
+String humanID;
+
+// -----Pin parameters-----
 const int outPins[] = {22, 23, 24, 25, 26, 27, 28, 29, 31}; // All out pins
 int ledPins[4][5] = { // Pins that drive the various LED signals used
   {28,26,24,29,23},
@@ -33,20 +35,26 @@ int trialStates[8][3] = { // Simplified trial type joint prob matrix
   {7, 8, 85},
   {8, 7, 85}
 };
-int rPin[] = {31};
+int rPin[] = {31}; // Reward valve pin
+int usePins[5]; // Initialise
+
+// -----General parameters-----
+int state = 0;
+int nextstate = 0;
 int i;
 int j;
-int usePins[5];
 
-// SUB ROUTINE FUNCTIONS -----------------
-// State transitions
+
+
+//:::::::::::::::::::::::::FUNCTIONS:::::::::::::::::::::::::
+// f(state transition)-----
 void transition(int n)
 {
   state = -1;     // Reset state to default
   nextstate = n;  // Advance state index
 }
 
-// Output pin toggle
+// f(output pin toggle)-----
 void output(int ppins[], int n, char direction)
 {
   for(int i = 0; i < n; i++)
@@ -55,15 +63,15 @@ void output(int ppins[], int n, char direction)
   }
 }
 
-// Background timer
+// f(background timer)-----
 void bgtimer(int tDur)
 {
-  doTime = 1;
+  doTime = true;
   pTimer = millis();
   tTimer = tDur;
 }
 
-// Important: actually random seed generator function
+// f(actually random seed generator function)-----
 #include <avr/interrupt.h>
 #include <avr/wdt.h>
 #include <util/atomic.h>
@@ -75,7 +83,6 @@ void bgtimer(int tDur)
 volatile uint32_t seed;  // These two variables can be reused in your program after the
 volatile int8_t nrot;    // function CreateTrulyRandomSeed()executes in the setup()
                          // function.
-
 void CreateTrulyRandomSeed()
 {
   seed = 0;
@@ -107,7 +114,10 @@ ISR(WDT_vect)
   seed = seed ^ TCNT1L;
 }
 
-// ---------------------------------------
+
+
+
+//:::::::::::::::::::::::::SETUP:::::::::::::::::::::::::
 void setup()
 {
   CreateTrulyRandomSeed(); // Calls the true random seed generator from above
@@ -117,23 +127,42 @@ void setup()
   int nPins = sizeof(outPins)/sizeof(outPins[0]);
 
   // Set pinmodes to output
-  for (i = 0; i < nPins+1; i++)
+  for (i = 0; i <= nPins; i++)
   {
     pinMode(outPins[i],OUTPUT);
   }
+  // Wait with next stage until serial monitor is running
+  while (! Serial);
+
+  // Verify
+  Serial.print("\n Mouse ID: ");
+  while (Serial.available() == 0) {}
+  mouseID = Serial.parseInt();
+  Serial.print("\n Human ID: ");
+  while (Serial.available() == 0) {}
+  humanID = Serial.readString();
+
+  Serial.print("\n Random seed generated: ");
+  Serial.println(seed);
+  Serial.println("Block start");
 }
 
-// ---------------------------------------
+
+
+
+
+
+//:::::::::::::::::::::::::MAIN LOOP:::::::::::::::::::::::::
 void loop()
 {
-  // Timer
+  // ..........Timer..........
   if (millis() - pTimer >= tTimer)
   {
     state = nextstate; // Trigger state transition via switch cases below
-    doTime = 0; // Reset timer
+    doTime = false; // Reset timer
   }
 
-  // Implement state transitions
+  // ..........State transitions..........
     switch (state)
     {
       case 0: // ITI timer start
@@ -142,16 +171,17 @@ void loop()
         break;
       case 1: // S2 LED ON
 
-        // This is just to test LED stimuli:::
-        // j = random(0,3);
-        j += 1;
-        j = j%4;
-        for (i = 0; i < 5; i++)
-        {
-          usePins[i] = ledPins[j][i];
-        }
-        Serial.print(j);
-        //:::
+          //:::::::::::::::::::::::::
+          // This is just to test LED stimuli
+          // j = random(0,3);
+          j += 1;
+          j = j%4;
+          for (i = 0; i < 5; i++)
+          {
+            usePins[i] = ledPins[j][i];
+          }
+          Serial.print(j);
+          //:::::::::::::::::::::::::
 
         bgtimer(tS2); // Start timer
         output(usePins, 5, HIGH); // activate(pins);
