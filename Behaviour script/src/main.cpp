@@ -16,14 +16,14 @@ int doTime = 0;
 // General parameters
 int state = 0;
 int nextstate = 0;
-const int outpins[] = {22, 23, 24, 25, 26, 27, 28, 29, 31}; // All out pins
-int LEDpins[4][5] = { // Pins that drive the various LED signals used
+const int outPins[] = {22, 23, 24, 25, 26, 27, 28, 29, 31}; // All out pins
+int ledPins[4][5] = { // Pins that drive the various LED signals used
   {28,26,24,29,23},
   {24,29,23,25,27},
   {23,25,27,22,28},
   {27,22,28,26,24}
 };
-int trialState[8][3] = { // Simplified trial type joint prob matrix
+int trialStates[8][3] = { // Simplified trial type joint prob matrix
   {1, 2, 85},
   {2, 1, 85},
   {3, 6, 85},
@@ -36,7 +36,7 @@ int trialState[8][3] = { // Simplified trial type joint prob matrix
 int rPin[] = {31};
 int i;
 int j;
-int usepins[5];
+int usePins[5];
 
 // SUB ROUTINE FUNCTIONS -----------------
 // State transitions
@@ -63,17 +63,63 @@ void bgtimer(int tDur)
   tTimer = tDur;
 }
 
+// Important: actually random seed generator function
+#include <avr/interrupt.h>
+#include <avr/wdt.h>
+#include <util/atomic.h>
+// The following addresses a problem in version 1.0.5 and earlier of the Arduino IDE
+// that prevents randomSeed from working properly.
+//        https://github.com/arduino/Arduino/issues/575
+#define randomSeed(s) srandom(s)
+
+volatile uint32_t seed;  // These two variables can be reused in your program after the
+volatile int8_t nrot;    // function CreateTrulyRandomSeed()executes in the setup()
+                         // function.
+
+void CreateTrulyRandomSeed()
+{
+  seed = 0;
+  nrot = 32; // Must be at least 4, but more increased the uniformity of the produced
+             // seeds entropy.
+
+  // The following five lines of code turn on the watch dog timer interrupt to create
+  // the seed value
+  cli();
+  MCUSR = 0;
+  _WD_CONTROL_REG |= (1<<_WD_CHANGE_BIT) | (1<<WDE);
+  _WD_CONTROL_REG = (1<<WDIE);
+  sei();
+
+  while (nrot > 0);  // wait here until seed is created
+
+  // The following five lines turn off the watch dog timer interrupt
+  cli();
+  MCUSR = 0;
+  _WD_CONTROL_REG |= (1<<_WD_CHANGE_BIT) | (0<<WDE);
+  _WD_CONTROL_REG = (0<< WDIE);
+  sei();
+}
+
+ISR(WDT_vect)
+{
+  nrot--;
+  seed = seed << 8;
+  seed = seed ^ TCNT1L;
+}
 
 // ---------------------------------------
 void setup()
 {
+  CreateTrulyRandomSeed(); // Calls the true random seed generator from above
+  randomSeed(seed);
+
   Serial.begin(9600);
-  int nPins = sizeof(outpins)/sizeof(outpins[0]);
+  int nPins = sizeof(outPins)/sizeof(outPins[0]);
 
   // Set pinmodes to output
   for (i = 0; i < nPins+1; i++)
   {
-    pinMode(outpins[i],OUTPUT);
+    pinMode(outPins[i],OUTPUT);
   }
 }
 
@@ -84,7 +130,7 @@ void loop()
   if (millis() - pTimer >= tTimer)
   {
     state = nextstate; // Trigger state transition via switch cases below
-    doTime = 0;
+    doTime = 0; // Reset timer
   }
 
   // Implement state transitions
@@ -95,20 +141,24 @@ void loop()
         transition(1); // Advance state index
         break;
       case 1: // S2 LED ON
+
+        // This is just to test LED stimuli:::
         // j = random(0,3);
         j += 1;
         j = j%4;
         for (i = 0; i < 5; i++)
         {
-          usepins[i] = LEDpins[j][i];
+          usePins[i] = ledPins[j][i];
         }
         Serial.print(j);
+        //:::
+
         bgtimer(tS2); // Start timer
-        output(usepins, 5, HIGH); // activate(pins);
+        output(usePins, 5, HIGH); // activate(pins);
         transition(2); // Advance state index
         break;
       case 2: // S2 LED OFF
-        output(usepins, 5, LOW); // activate(pins);
+        output(usePins, 5, LOW); // activate(pins);
         transition(3); // Advance state index
         break;
       case 3: // Trace period start
