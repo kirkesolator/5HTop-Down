@@ -2,37 +2,38 @@
 
 // -----Duration parameters-----
 const int tITI = 2000; // ITI duration
-const int tS2 = 500; // Stimulus S2 duration
-const int tS1 = 500; // Stimulus S1 duration
+const int tS1 = 500; // Stimulus S2 duration
+const int tS2 = 500; // Stimulus S1 duration
 const int tReward = 20; // Reward water flow duration
 const int tTrace = 500; // Trace period duration
 const int tDelay = 10; // Reward onset delay
 
 // -----Timer parameters-----
-int unsigned long pTimer;
-int unsigned long tTimer;
+unsigned long pTimer;
+unsigned long tTimer;
 bool doTime = false;
 
-// -----Lick parameters-----
+// -----Input parameters-----
 int lickState = 1; // Initial lick state
 int lickStateP; // Previous lick state
 int lickNum; // Poke counter
 int lickON;
 int lickOFF;
+unsigned long treadState;
 
 // -----ID variables-----
 int mouseID;
 String humanID;
 
 // -----Pin parameters-----
-const int outPins[] = {22, 23, 24, 25, 26, 27, 28, 29, 31}; // All out pins
-int ledPins[4][5] = { // Pins that drive the various LED signals used
+const unsigned int outPins[21] = {1,2,3,4,5,6,7,8,9,10,11,12,22,23,24,25,26,27,28,29,31}; // All out pins
+const unsigned int ledPins[4][5] = { // Pins that drive the various LED signals used
   {28,26,24,29,23},
   {24,29,23,25,27},
   {23,25,27,22,28},
   {27,22,28,26,24}
 };
-int trialStates[8][3] = { // Simplified trial type joint prob matrix
+const unsigned int trialStates[8][3] = { // Simplified trial type joint prob matrix
   {1, 2, 85},
   {2, 1, 85},
   {3, 6, 85},
@@ -42,18 +43,34 @@ int trialStates[8][3] = { // Simplified trial type joint prob matrix
   {7, 8, 85},
   {8, 7, 85}
 };
+const unsigned int odorPins[4][12] = { // Olfactometer pin mapping
+  {1,1,1,4,4,4,7,7,7,10,10,10},
+  {2,3,3,5,6,6,8,9,9,11,12,12},
+  {0,1,1,0,1,1,0,1,1,0,1,1},
+  {1,0,1,1,0,1,1,0,1,1,0,1}
+};
 int rPin[] = {31}; // Reward valve pin
-int lPin = 10; // Lick pin
-int usePins[5]; // Initialise
+int lPin = 40; // Lick pin
+int treadPin = A0;
+int S1pins[5];
+int S2pins[2];
+int unsigned S1ID;
 
 // -----General parameters-----
+int blockBasis[8] = {0, 1, 2, 3, 4, 5, 6, 7};
+const int blockSize = sizeof(blockBasis)/sizeof(blockBasis[0]);
+unsigned int inblock = false;
+unsigned int blockPos = 0;
+int unsigned trialCoin;
+int unsigned trialID;
+// Variables
 int state = 0;
 int nextstate = 0;
 int i;
 int j;
 
 
-
+//:::::::::::::::::::::::::---------:::::::::::::::::::::::::
 //:::::::::::::::::::::::::FUNCTIONS:::::::::::::::::::::::::
 // f(state transition)-----
 void transition(int n)
@@ -96,7 +113,6 @@ void CreateTrulyRandomSeed()
   seed = 0;
   nrot = 32; // Must be at least 4, but more increased the uniformity of the produced
              // seeds entropy.
-
   // The following five lines of code turn on the watch dog timer interrupt to create
   // the seed value
   cli();
@@ -104,9 +120,7 @@ void CreateTrulyRandomSeed()
   _WD_CONTROL_REG |= (1<<_WD_CHANGE_BIT) | (1<<WDE);
   _WD_CONTROL_REG = (1<<WDIE);
   sei();
-
   while (nrot > 0);  // wait here until seed is created
-
   // The following five lines turn off the watch dog timer interrupt
   cli();
   MCUSR = 0;
@@ -114,7 +128,6 @@ void CreateTrulyRandomSeed()
   _WD_CONTROL_REG = (0<< WDIE);
   sei();
 }
-
 ISR(WDT_vect)
 {
   nrot--;
@@ -122,15 +135,24 @@ ISR(WDT_vect)
   seed = seed ^ TCNT1L;
 }
 
+// f(shuffle trial identities)-----
+void swap (int *p,int *q)
+{
+  int temp;
+  temp=*p;
+  *p=*q;
+  *q=temp;
+}
 
-
-
+//:::::::::::::::::::::::::-----:::::::::::::::::::::::::
+//:::::::::::::::::::::::::-----:::::::::::::::::::::::::
 //:::::::::::::::::::::::::SETUP:::::::::::::::::::::::::
 void setup()
 {
   CreateTrulyRandomSeed(); // Calls the true random seed generator from above
   randomSeed(seed);
 
+  // Open serial port
   Serial.begin(9600);
   int nPins = sizeof(outPins)/sizeof(outPins[0]);
 
@@ -150,6 +172,7 @@ void setup()
   while (Serial.available() == 0) {}
   humanID = Serial.readString();
 
+  // Print some random info, literally
   Serial.print("\n Random seed generated: ");
   Serial.println(seed);
   Serial.println("Block start");
@@ -157,89 +180,124 @@ void setup()
 
 
 
-
-
-
+//:::::::::::::::::::::::::---------:::::::::::::::::::::::::
+//:::::::::::::::::::::::::---------:::::::::::::::::::::::::
+//:::::::::::::::::::::::::---------:::::::::::::::::::::::::
 //:::::::::::::::::::::::::MAIN LOOP:::::::::::::::::::::::::
 void loop()
 {
-  // ..........Read and compare lick states..........
-  lickStateP = lickState; // store previous lick state
-  lickState = digitalRead(lPin); // record new lick state
-
-  // ..........Poke Detection..........
-  if (lickState-lickStateP < 0) {
-    lickNum = lickNum + 1; // Update lick counter
-    Serial.print("."); // Print to serial monitor
-    lickON = millis(); // Record lick entry
-  }
-  else if (lickState-lickStateP > 0) { // Record lick exit
-    lickOFF = millis();
-  }
-
-  // ..........Timer..........
-  if (millis() - pTimer >= tTimer)
+  // Shuffle block vector to randomize trials
+  for (int k = blockSize-1; k >= 0; k--)
   {
-    state = nextstate; // Trigger state transition via switch cases below
-    doTime = false; // Reset timer
+    int j = random(k); // Pick a random index from 0 to k
+    swap(&blockBasis[k], &blockBasis[j]); // Swap blockBasis[k] with the element at random index
   }
+  blockPos = 1; // Reset trial counter
+  inblock = true; // Declare we are in block
 
-  // ..........State transitions..........
-    switch (state)
+  // Run block
+  while (inblock)
+  {
+    // Cycle through all the trials in this block
+    for(int trials = 0; trials < blockSize; trials++)
     {
-      case 0: // ITI timer start
-        bgtimer(tITI); // Start timer
-        transition(1); // Advance state index
-        break;
-      case 1: // S2 LED ON
+      trialID = blockBasis[trials];
+      // ..........Timer..........
+      if (millis() - pTimer >= tTimer)
+      {
+        state = nextstate; // Trigger state transition via switch cases below
+        doTime = false; // Reset timer
+      }
 
-          //:::::::::::::::::::::::::
-          // This is just to test LED stimuli
-          // j = random(0,3);
-          j += 1;
-          j = j%4;
+      // ..........Lick detection..........
+      lickStateP = lickState; // store previous lick state
+      lickState = digitalRead(lPin); // record new lick state
+      if (lickState-lickStateP < 0)
+      {
+        lickNum += 1; // Update lick counter
+        Serial.print("."); // Print to serial monitor
+        lickON = millis(); // Record lick entry
+      }
+      else if (lickState-lickStateP > 0) // Record lick exit
+      {
+        lickOFF = millis();
+      }
+
+      // Read analogue treadmill input
+      treadState = analogRead(treadPin);
+
+    // ******************** State transitions ********************
+      switch (state)
+      {
+        case 0: // ITI timer start
+          bgtimer(tITI); // Start timer
+          transition(1); // Advance state index
+
+          // Determine S1 for this trial
+          trialCoin = random(100);
+          if (trialCoin >= trialStates[trials][2])
+          {
+            S1ID = trialStates[trials][1];
+          }
+          else
+          {
+            S1ID = trialStates[trials][0];
+          }
+          // Generate pin map for LED stimulus
           for (i = 0; i < 5; i++)
           {
-            usePins[i] = ledPins[j][i];
+            S1pins[i] = ledPins[j][i];
           }
-          Serial.print(j);
-          //:::::::::::::::::::::::::
-
-        bgtimer(tS2); // Start timer
-        output(usePins, 5, HIGH); // activate(pins);
-        transition(2); // Advance state index
-        break;
-      case 2: // S2 LED OFF
-        output(usePins, 5, LOW); // activate(pins);
-        transition(3); // Advance state index
-        break;
-      case 3: // Trace period start
-        bgtimer(tTrace); // Start timer
-        transition(4); // Advance state index
-        break;
-      case 4: // S1 odor  ON
-        output(rPin, 1, HIGH);
-        bgtimer(tS1); // Start timer
-        transition(5); // Advance state index
-        break;
-      case 5: // S1 odor presentation OFF
-        output(rPin, 1, LOW); //S1 odor OFF
-        transition(6); // Advance state index
-        break;
-      case 6: // Reward onset delay timer start
-        bgtimer(tDelay); // Start timer
-        transition(7); // Advance state index
-        break;
-      case 7: // Reward presentation ON
-        output(rPin, 1, HIGH); // Open reward port
-        bgtimer(tReward); // Start timer
-        transition(8); // Advance state index
-        break;
-      case 8: // Reward presentation ON
-        output(rPin, 1, LOW); // Close reward port
-        transition(0); // Advance state index
-        break;
-      default: // Default stay out of switch
-        break;
+          // Determine S2 for this trial
+          S2pins[0] = 2;
+          break;
+        case 1: // S1 stimulus ON
+          bgtimer(tS1); // Start timer
+          output(S1pins, 5, HIGH); // activate(pins);
+          transition(2); // Advance state index
+          break;
+        case 2: // S1 stimulus OFF
+          output(S1pins, 5, LOW); // activate(pins);
+          transition(3); // Advance state index
+          break;
+        case 3: // Trace period start
+          bgtimer(tTrace); // Start timer
+          transition(4); // Advance state index
+          break;
+        case 4: // S2 odor  ON
+          output(S2pins, 1, HIGH);
+          bgtimer(tS2); // Start timer
+          transition(5); // Advance state index
+          break;
+        case 5: // S2 odor presentation OFF
+          output(S2pins, 1, LOW); //S1 odor OFF
+          transition(6); // Advance state index
+          break;
+        case 6: // Reward onset delay timer start
+          bgtimer(tDelay); // Start timer
+          transition(7); // Advance state index
+          break;
+        case 7: // Reward presentation ON
+          output(rPin, 1, HIGH); // Open reward port
+          bgtimer(tReward); // Start timer
+          transition(8); // Advance state index
+          break;
+        case 8: // Reward presentation OFF
+          output(rPin, 1, LOW); // Close reward port
+          transition(0); // Advance state index
+          if (blockPos == blockSize)
+          {
+            inblock = false;
+          }
+          else blockPos += 1;
+          break;
+        case 9: // Pause the whole thing
+          while (Serial.available() == 0) {} // Wait for input over serial port
+          transition(nextstate); // Reset state index
+          break;
+        default: // Default stay out of switches
+          break;
+      }
     }
+  }
 }
