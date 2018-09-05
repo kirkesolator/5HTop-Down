@@ -161,6 +161,7 @@ void setup()
   {
     pinMode(outPins[i],OUTPUT);
   }
+
   // Wait with next stage until serial monitor is running
   while (! Serial);
 
@@ -193,7 +194,7 @@ void loop()
     swap(&blockBasis[k], &blockBasis[j]); // Swap blockBasis[k] with the element at random index
   }
   blockPos = 1; // Reset trial counter
-  inblock = true; // Declare we are in block
+  inblock = true; // (Re)declare we are in block
 
   // Run block
   while (inblock)
