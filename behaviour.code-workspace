@@ -1,13 +1,7 @@
 {
 	"folders": [
 		{
-			"path": "Behaviour script"
+			"path": "."
 		}
-	],
-	"settings": {
-		"terminal.integrated.env.osx": {
-			"PATH": "/Users/StensolaTor/.platformio/penv/bin:/Users/StensolaTor/.platformio/penv:/anaconda2/bin:/usr/bin:/bin:/usr/sbin:/sbin",
-			"PLATFORMIO_CALLER": "vscode"
-		}
-	}
+	]
 }
