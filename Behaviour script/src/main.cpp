@@ -63,7 +63,8 @@ unsigned int inblock = false;
 unsigned int blockPos = 0;
 int unsigned trialCoin;
 int unsigned trialID;
-// Variables
+
+// -----Variables-----
 int state = 0;
 int nextstate = 0;
 int i;
