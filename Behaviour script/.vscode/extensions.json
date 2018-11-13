@@ -1,16 +1,7 @@
-<<<<<<< HEAD
 {
 	// See http://go.microsoft.com/fwlink/?LinkId=827846
 	// for the documentation about the extensions.json format
 	"recommendations": [
 		"platformio.platformio-ide"
 	]
-=======
-{
-	// See http://go.microsoft.com/fwlink/?LinkId=827846
-	// for the documentation about the extensions.json format
-	"recommendations": [
-		"platformio.platformio-ide"
-	]
->>>>>>> dac9827324c374237fe19d3d00f27b0782608c7e
 }
