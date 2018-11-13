@@ -1,0 +1,17 @@
+{
+	"folders": [
+		{
+			"path": "Behaviour script"
+		},
+		{
+			"path": "Training protocols/Training1_visual",
+			"name": "Training1_visual"
+		}
+	],
+	"settings": {
+		"terminal.integrated.env.osx": {
+			"PATH": "/Users/StensolaTor/.platformio/penv/bin:/Users/StensolaTor/.platformio/penv:/anaconda2/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+			"PLATFORMIO_CALLER": "vscode"
+		}
+	}
+}
