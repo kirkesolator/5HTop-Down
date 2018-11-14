@@ -11,22 +11,23 @@
 // 7. TODO: Set up STATE progression
 // 8. TODO: Remember to put in a section (ITI) for sending and receiving data
 // 9. TODO: Add visual stimulus function
-// 10. TODO: Set up random wait time between stimulus offset and reward delivery
+// 10. TODO: Set up random wait time between stimulus offset and reward delivery (use map function)
 
 
 //:_:_:_:_:_:_:_:_:_:_:_:_:_:_:_:_: LIBRARY :_:_:_:_:_:_:_:_:_:_:_:_:_:_:_:_:
 #include <Arduino.h>
 #include <LiquidCrystal.h>
-#include <avr/interrupt.h> // For randdom seed gen
-#include <avr/wdt.h> // For randdom seed gen
-#include <util/atomic.h> // For randdom seed gen
-#define randomSeed(s) srandom(s) // For randdom seed gen
+#include <avr/interrupt.h>          // For random seed gen
+#include <avr/wdt.h>                // For random seed gen
+#include <util/atomic.h>            // For random seed gen
+#define randomSeed(s) srandom(s)    // For random seed gen
 
-
+// Initialize LCD object
+LiquidCrystal lcd(12, 11, 5, 4, 3, 2);
 
 //:_:_:_:_:_:_:_:_:_:_:_:_:_:_:_:_: VARIABLES :_:_:_:_:_:_:_:_:_:_:_:_:_:_:_:_:
 // General variables
-const unsigned int rateBaud = 9600;
+const unsigned int rateBaud = 9600; // Baud rate for serial com. !!CRITICAL that this is same in python script!!
 int outPins[1]; // Needs to be filled with actual output pin IDs
 
 // Time variables
@@ -37,16 +38,16 @@ const int tRewardWait[2] = {200, 800}; // Random wait range for reward onset aft
 
 
 // Trial varibles
-int i;
 const int nTrialTypes = 6;
 const int nTrialsinBlock = 3;
 int vecBlock[nTrialsinBlock*nTrialTypes]; // Cf setup 2. for generating actual vector
 
 // Random generator variables
 volatile uint32_t seed;  // These two variables can be reused in your program after the
-volatile int8_t nrot;    // function CreateTrulyRandomSeed()executes in the setup()
+volatile int8_t nrot;    // function truleRandSeed() executes in the setup()
 
-
+// Initialize general use stuff
+int i;
 
 //:_:_:_:_:_:_:_:_:_:_:_:_:_:_:_:_: FUNCTIONS :_:_:_:_:_:_:_:_:_:_:_:_:_:_:_:_:
 // 1. f(random_generator)____________________________________________________________________________________
@@ -75,13 +76,12 @@ ISR(WDT_vect){
   seed = seed << 8;
   seed = seed ^ TCNT1L;
 }
-
 // Use in setup section 3.:
 //  trueRandSeed(); // Calls the true random seed generator from above
 //  randomSeed(seed);
 // Use in any section:
 //  // Then just call random() as usual
-// -------------------------------------------------------------------------------------------------------------
+// -----------------------------------------------------------------------------------------------------------
 
 
 
