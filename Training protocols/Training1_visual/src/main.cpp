@@ -1,7 +1,7 @@
 //:_:_:_:_:_:_:_:_:_:_:_:_:_:_:_:_: OVERVIEW :_:_:_:_:_:_:_:_:_:_:_:_:_:_:_:_:
-// 1. TODO: Define trial types
+// 1. Define trial types
 // --- For visual only, only 6 stimuli, BUT if we want some play on statistics, should perhaps include in this
-// 2. TODO: Determine block structure
+// 2. Determine block structure
 // --- Should have several rounds of the trial types   - x3? so blocks of 18 trials?
 // --- Do we want to have a vector that is shuffled to generate random trial type progression?
 // 3. Set up communication with PYTHON
@@ -12,6 +12,7 @@
 // 8. TODO: Remember to put in a section (ITI) for sending and receiving data
 // 9. TODO: Add visual stimulus function
 // 10. TODO: Set up random wait time between stimulus offset and reward delivery (use map function)
+// 11. TODO: Key stroke input for start stop
 
 
 //:_:_:_:_:_:_:_:_:_:_:_:_:_:_:_:_: LIBRARY :_:_:_:_:_:_:_:_:_:_:_:_:_:_:_:_:
@@ -27,8 +28,12 @@ LiquidCrystal lcd(12, 11, 5, 4, 3, 2);
 
 //:_:_:_:_:_:_:_:_:_:_:_:_:_:_:_:_: VARIABLES :_:_:_:_:_:_:_:_:_:_:_:_:_:_:_:_:
 // General variables
-const unsigned int rateBaud = 9600; // Baud rate for serial com. !!CRITICAL that this is same in python script!!
 int outPins[1]; // Needs to be filled with actual output pin IDs
+bool doRun = false;
+
+// Serial communication
+int incomingByte = 0;
+const unsigned int rateBaud = 9600; // Baud rate for serial com. !!CRITICAL that this is same in python script!!
 
 // Time variables
 const int tITI = 1000;  // Inter-trial interval (ms)
@@ -83,8 +88,19 @@ ISR(WDT_vect){
 //  // Then just call random() as usual
 // -----------------------------------------------------------------------------------------------------------
 
-
-
+// 2. f(shuffle trial identities)_____________________________________________________________________________
+void swap (int *p,int *q){
+  int temp;
+  temp=*p;
+  *p=*q;
+  *q=temp;
+}
+// Call with:
+// for (int k = (nTrialsinBlock * nTrialTypes)-1; k >= 0; k--){
+//  int j = random(k); // Pick a random index from 0 to k
+//  swap(&vecBlock[k], &vecBlock[j]); // Swap vecBlock[k] with the element at random index
+// }
+// -----------------------------------------------------------------------------------------------------------
 
 //:_:_:_:_:_:_:_:_:_:_:_:_:_:_:_:_: SETUP :_:_:_:_:_:_:_:_:_:_:_:_:_:_:_:_:
 void setup() {
@@ -106,7 +122,7 @@ void setup() {
         pinMode(outPins[i],OUTPUT);
     }
 
-    // Wait with next stage until serial monitor is running
+    // End. Wait with next stage until serial monitor is running
     while (! Serial);
 }
 
@@ -114,17 +130,43 @@ void setup() {
 
 //:_:_:_:_:_:_:_:_:_:_:_:_:_:_:_:_: MAIN LOOP :_:_:_:_:_:_:_:_:_:_:_:_:_:_:_:_:
 void loop() {
-  // Start block, define block vector
+  // ........Serial communication..........
+  if (Serial.available() > 0) {
+    // Read the incoming byte
+    incomingByte = Serial.read();
 
-  // Define reward outcomes for any trials with uncertainty
+    // Start/stop reward delivery via SPACE BAR
+    if (incomingByte == 32){
+      doRun = !doRun;
+      if (doRun){
+        Serial.println("Reward delivery started");
+        doRun = true;
+      }
+      else{
+        Serial.println("Reward delivery stopped");
+        doRun = false;
+      }
+    }
+  }
 
-  // Check timer
+  if (doRun){
+    // Start block------------
+    // 1. Shuffle block vector to randomize upcoming trials
+    for (int k = (nTrialsinBlock * nTrialTypes)-1; k >= 0; k--){
+      int j = random(k); // Pick a random index from 0 to k
+      swap(&vecBlock[k], &vecBlock[j]); // Swap vecBlock[k] with the element at random index
+    }
 
-  // Check lick status
+    // Define reward outcomes for any trials with uncertainty
 
-  // Send info to python
+    // Check timer
 
-  // Check for input from key press or python
+    // Check lick status
 
-  // Output/state progression
+    // Send info to python
+
+    // Check for input from key press or python
+
+    // Output/state progression
+  }
 }
