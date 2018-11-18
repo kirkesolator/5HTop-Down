@@ -6,6 +6,9 @@
 		{
 			"path": "Training protocols/Training1_visual",
 			"name": "Training1_visual"
+		},
+		{
+			"path": "/Users/StensolaTor/Documents/Arduino/libraries/src"
 		}
 	],
 	"settings": {

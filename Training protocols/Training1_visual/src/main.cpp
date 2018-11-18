@@ -26,6 +26,7 @@
   #include <avr/wdt.h>                // For random seed gen
   #include <util/atomic.h>            // For random seed gen
   #define randomSeed(s) srandom(s)    // For random seed gen
+  #include <LCDvisual.h>
 
   // ---Initialize LCD object
     LiquidCrystal lcd(12, 11, 5, 4, 3, 2);
@@ -68,8 +69,13 @@
     int Nblocks = 0;
     unsigned int currentTrial = 0;
 
-    // ---Probability distributions
+    // ---Treadmill
+    const int pinTM = A0;
+    int valTM = analogRead(pinTM);
+
+    // ---Reward variables
     unsigned int pReward[nTrialTypes] = {100,100,50,50,0,0};
+    int pinReward[1] = {2};
 
   // ---Random generator variables
     volatile uint32_t seed;  // These two variables can be reused in your program after the
@@ -164,6 +170,9 @@
         digitalWrite(ppins[i], direction);
       }
     }
+    /*
+    int pinReward[1] = {2}; // To allow vactor with only 1 element to pass to function
+    */
   // -----------------------------------------------------------------------------------------------------------
 
   //:_:_:_:_:_:_:_:_:_:_:_:_:_:_:_:_: ISR :_:_:_:_:_:_:_:_:_:_:_:_:_:_:_:_:
@@ -238,6 +247,12 @@
           doTime = false; // Reset timer
       }
     }
+  
+  //TODO:.............................. Treadmill ..............................
+    if(analogRead(pinTM) != valTM){
+      valTM = analogRead(pinTM);
+      // Record time
+    }
 
   //.............................. STATE PROGRESSION ..............................
     if (doRun){
@@ -298,23 +313,32 @@
         
         // 10. Define next transition state
         transition(4);
-
         break;
-      case 1:
-      case 2:
-      case 3:
+      case 1: // Turn on S1
+        bgtimer(tOffset);
+        transition(2);
+        break;
+      case 2: // Turn off S1
+        transition(3);
+        break;
+      case 3: // Start random reward offset 
         bgtimer(tOffset);
         transition(4);
-        /* Overview
-          case 0: ITI: set time ref first, then block vector generation, random offset, serial port check, 
-            serial data sender, write to LCD, reset lick counter then finally run timer
-          case 1: S1 onset
-          case 2: S1 offset
-          case 3: Timer with random offset
-          case 4: Reward onset
-          case 5: Reward offset
-        */
-      default:
+        break;
+      case 4: // Turn on reward
+        if(giveReward){
+          output(pinReward,1,HIGH);
+        }
+        bgtimer(tReward);
+        transition(5);
+        break;
+      case 5: // Turn off reward
+        if(giveReward){
+          output(pinReward,1,LOW);
+        }
+        transition(0);
+        break;
+      default: // Default behaviour
       break;
       }
     }
