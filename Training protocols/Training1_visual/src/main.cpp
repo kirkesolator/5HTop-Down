@@ -11,7 +11,7 @@
   6. Set up (multi) timer
   7. Set up STATE progression
   TODO: 8. Remember to put in a section (ITI) for sending and receiving data
-  TODO: 9. Add visual stimulus function
+  9. Add visual stimulus function
   10. Set up random wait time between stimulus offset and reward delivery (use map function)
   11. Key stroke input for start stop
   12. Add interrupt for lick detector
@@ -26,18 +26,17 @@
   #include <avr/wdt.h>                // For random seed gen
   #include <util/atomic.h>            // For random seed gen
   #define randomSeed(s) srandom(s)    // For random seed gen
-  #include <LCDvisual.h>
 
   // ---Initialize LCD object
     LiquidCrystal lcd(12, 11, 5, 4, 3, 2);
 
 //:_:_:_:_:_:_:_:_:_:_:_:_:_:_:_:_: VARIABLES :_:_:_:_:_:_:_:_:_:_:_:_:_:_:_:_:
   // ---General variables
-    int outPins[1]; // Needs to be filled with actual output pin IDs (EXCLUDING lick detector pin)
+    int outPins[13]; // Needs to be filled with actual output pin IDs (EXCLUDING lick detector pin)
     bool doRun = false;
     int state = 0;
     int nextstate = 0;
-    bool giveReward;
+    bool giveReward; 
 
   // ---Lick detector variables
     const int interruptPin = 2; // This lick detector input MUST be either of {2,3,18,19,20,21} for interrupt to work properly
@@ -52,7 +51,7 @@
   // ---Time variables
     const int tITI = 1000;  // Inter-trial interval (ms)
     const int tS1 = 200;    // S1 stimulus duration (ms)
-    const int tReward = 20; // Reward duration (ms)
+    const int tReward = 250; // Reward duration (ms)
     const int tOffsetR[2] = {200, 800}; // Random wait range for reward onset after S1 offset (ms)
     int tOffset;
 
@@ -75,7 +74,7 @@
 
     // ---Reward variables
     unsigned int pReward[nTrialTypes] = {100,100,50,50,0,0};
-    int pinReward[1] = {2};
+    int pinReward[1] = {13};
 
   // ---Random generator variables
     volatile uint32_t seed;  // These two variables can be reused in your program after the
@@ -85,6 +84,20 @@
     int i;
     int k;
     int j;
+
+  // ---LCD visual stimulus variables
+    // Define custom character shapes
+    byte full[8] = { // Full
+      B11111,B11111,
+      B11111,B11111,
+      B11111,B11111,
+      B11111,B11111,
+    };
+    // Stimulus-cursor matrix 
+    int cursorVec[2][6] = {
+      {0,1, 0,1,0, 1},
+      {0,5,10,0,5,10}
+    };
 
 //:_:_:_:_:_:_:_:_:_:_:_:_:_:_:_:_: FUNCTIONS :_:_:_:_:_:_:_:_:_:_:_:_:_:_:_:_:
   // 1. f(random_generator)____________________________________________________________________________________
@@ -209,8 +222,9 @@
     pinMode(interruptPin, INPUT_PULLUP); //TODO: check if pullup needed
     attachInterrupt(digitalPinToInterrupt(interruptPin), recLick, CHANGE);
 
-    // 6. Start LCD
+    // 6. Start LCD and create custom character
     lcd.begin(16, 2);
+    lcd.createChar(0, full);
 
     // End. Wait with next stage until serial monitor is running
     while (! Serial);
@@ -231,6 +245,7 @@
         if (doRun){
           Serial.println("Training protocol started");
           doRun = true;
+          bgtimer(0);
         }
         else{
           Serial.println("Training protocol stopped");
@@ -272,6 +287,10 @@
             swap(&vecBlock[k], &vecBlock[j]); // Swap vecBlock[k] with the element at random index
           }
           Nblocks += 1; // Update block counter
+          Serial.print("Bn"); // Trial ID event key
+          Serial.print(Nblocks); // Trial ID
+          Serial.print(":");
+          Serial.print(millis()); // Time stamp
         }
 
         // 4. Reset lick counter
@@ -290,9 +309,13 @@
 
         // 7. Update trial counter
         Ntrials += 1;
+        Serial.print("_:_Tn"); // Trial ID event key
+        Serial.print(Ntrials); // Trial ID
+        Serial.print(":");
+        Serial.print(millis()); // Time stamp
 
         /* ONLY an option to use LCD for this if NOT using LCD for visual stimulation.....
-        // 8. Write to LCD TODO: Set cursor and clear LCD
+        // 8. Write to LCD: Set cursor and clear LCD
         lcd.clear();
         lcd.print("Block: "); // Need block counter
         lcd.println(Nblocks);
@@ -303,43 +326,60 @@
         // 9. Send serial data to python
           // 1. Lick data
           for (i = 0; i < lickCount; i++){
-            Serial.print("Ld"); // Lick event key
+            Serial.print("_Ld"); // Lick event key
             Serial.print(vecLick[0][i]);
-            Serial.print("Lt"); // Lick timestamp key
+            Serial.print(":"); // Lick timestamp key
             Serial.print(vecLick[1][i]);
           }
           // 2. State progression data
           // 3. Treadmill
         
         // 10. Define next transition state
-        transition(4);
+        transition(1);
         break;
       case 1: // Turn on S1
-        bgtimer(tOffset);
+        lcd.setCursor(cursorVec[1][vecBlock[currentTrial]],cursorVec[0][vecBlock[currentTrial]]);
+        for(int i = 0; i < 6; i++){
+          lcd.write(byte(0));
+        }
+        lcd.setCursor(cursorVec[1][vecBlock[currentTrial]]+2,!cursorVec[0][vecBlock[currentTrial]]);
+        lcd.write(byte(0));
+        lcd.write(byte(0));
+        bgtimer(tS1);
         transition(2);
+        Serial.print("_S1y:"); // Trial ID event key
+        Serial.print(millis()); // Time stamp
         break;
       case 2: // Turn off S1
+        lcd.clear();
         transition(3);
-        break;
-      case 3: // Start random reward offset 
         bgtimer(tOffset);
-        transition(4);
+        Serial.print("_S1n:"); // Trial ID event key
+        Serial.print(millis()); // Time stamp
         break;
-      case 4: // Turn on reward
+      case 3: // Turn on reward
         if(giveReward){
           output(pinReward,1,HIGH);
+          Serial.print("_Ryy:"); // Trial ID event key
+        }
+        else{
+          Serial.print("_Ryn:"); // Trial ID event key
         }
         bgtimer(tReward);
-        transition(5);
+        Serial.print(millis()); // Time stamp
+        transition(4);
         break;
-      case 5: // Turn off reward
+      case 4: // Turn off reward
         if(giveReward){
           output(pinReward,1,LOW);
         }
         transition(0);
+        bgtimer(0);
+        Serial.print("_Rn:"); // Trial ID event key
+        Serial.print(millis()); // Time stamp
         break;
       default: // Default behaviour
-      break;
+        break;
       }
     }
   }
