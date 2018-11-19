@@ -13,7 +13,7 @@
 	],
 	"settings": {
 		"terminal.integrated.env.osx": {
-			"PATH": "/Users/StensolaTor/.platformio/penv/bin:/Users/StensolaTor/.platformio/penv:/Applications/NEURON-7.6/nrn/x86_64/bin:/Library/Frameworks/Python.framework/Versions/3.7/bin:/anaconda2/bin:/opt/local/bin:/opt/local/sbin:/usr/local/bin:/usr/local/sbin:/usr/bin:/bin:/usr/sbin:/sbin",
+			"PATH": "/Users/StensolaTor/.platformio/penv/bin:/Users/StensolaTor/.platformio/penv:/anaconda2/bin:/usr/bin:/bin:/usr/sbin:/sbin",
 			"PLATFORMIO_CALLER": "vscode"
 		}
 	}
