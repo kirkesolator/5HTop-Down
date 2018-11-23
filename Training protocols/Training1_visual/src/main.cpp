@@ -10,7 +10,7 @@
   5. Set up RANDOM function
   6. Set up (multi) timer
   7. Set up STATE progression
-  TODO: 8. Remember to put in a section (ITI) for sending and receiving data
+  8. Remember to put in a section (ITI) for sending and receiving data
   9. Add visual stimulus function
   10. Set up random wait time between stimulus offset and reward delivery (use map function)
   11. Key stroke input for start stop
@@ -32,7 +32,7 @@
 
 //:_:_:_:_:_:_:_:_:_:_:_:_:_:_:_:_: VARIABLES :_:_:_:_:_:_:_:_:_:_:_:_:_:_:_:_:
   // ---General variables
-    int outPins[13]; // Needs to be filled with actual output pin IDs (EXCLUDING lick detector pin)
+    int outPins[1] = {8}; // Needs to be filled with actual output pin IDs (EXCLUDING lick detector pin)
     bool doRun = false;
     int state = 0;
     int nextstate = 0;
@@ -50,15 +50,17 @@
 
   // ---Time variables
     const int tITI = 1000;  // Inter-trial interval (ms)
-    const int tS1 = 200;    // S1 stimulus duration (ms)
-    const int tReward = 250; // Reward duration (ms)
+    const int tS1 = 500;    // S1 stimulus duration (ms)
+    const int tReward = 20; // Reward duration (ms)
     const int tOffsetR[2] = {200, 800}; // Random wait range for reward onset after S1 offset (ms)
     int tOffset;
 
   // ---f(timer variables)
     unsigned long pTimer;
-    unsigned long tTimer;
+    unsigned int tTimer;
     bool doTime = false;
+    unsigned long pTimer2;
+    const int tTimer2 = 40; // This sets the rate of treadmill sampling (40 = 25Hz..)
 
   // ---Trial varibles
     const int nTrialTypes = 6;
@@ -74,7 +76,7 @@
 
     // ---Reward variables
     unsigned int pReward[nTrialTypes] = {100,100,50,50,0,0};
-    int pinReward[1] = {13};
+    int pinReward[1] = {8};
 
   // ---Random generator variables
     volatile uint32_t seed;  // These two variables can be reused in your program after the
@@ -243,12 +245,12 @@
       if (incomingByte == 32){
         doRun = !doRun;
         if (doRun){
-          Serial.println("Training protocol started");
+          Serial.println(":::Started:::");
           doRun = true;
           bgtimer(0);
         }
         else{
-          Serial.println("Training protocol stopped");
+          Serial.println(":::Stopped:::");
           doRun = false;
           doTime = false;
         }
@@ -263,10 +265,16 @@
       }
     }
   
-  //TODO:.............................. Treadmill ..............................
-    if(analogRead(pinTM) != valTM){
-      valTM = analogRead(pinTM);
-      // Record time
+  //.............................. Treadmill ..............................
+    if(millis() - pTimer2 >= tTimer2){
+        if(analogRead(pinTM) != valTM){
+          valTM = analogRead(pinTM);
+          pTimer2 = millis();
+          Serial.print("TMV:"); // Trial ID event key
+          Serial.print(valTM); // Trial ID
+          Serial.print(":");
+          Serial.print(pTimer2); // Time stamp
+        }
     }
 
   //.............................. STATE PROGRESSION ..............................
@@ -287,7 +295,7 @@
             swap(&vecBlock[k], &vecBlock[j]); // Swap vecBlock[k] with the element at random index
           }
           Nblocks += 1; // Update block counter
-          Serial.print("Bn"); // Trial ID event key
+          Serial.print("_::Bn"); // Trial ID event key
           Serial.print(Nblocks); // Trial ID
           Serial.print(":");
           Serial.print(millis()); // Time stamp
@@ -326,7 +334,7 @@
         // 9. Send serial data to python
           // 1. Lick data
           for (i = 0; i < lickCount; i++){
-            Serial.print("_Ld"); // Lick event key
+            Serial.print("_L"); // Lick event key
             Serial.print(vecLick[0][i]);
             Serial.print(":"); // Lick timestamp key
             Serial.print(vecLick[1][i]);
@@ -347,23 +355,23 @@
         lcd.write(byte(0));
         bgtimer(tS1);
         transition(2);
-        Serial.print("_S1y:"); // Trial ID event key
+        Serial.print("_S1:"); // Trial ID event key
         Serial.print(millis()); // Time stamp
         break;
-      case 2: // Turn off S1
+      case 2: // Turn off S1 and start timer for reward offset
         lcd.clear();
         transition(3);
         bgtimer(tOffset);
-        Serial.print("_S1n:"); // Trial ID event key
+        Serial.print("_S2:"); // Trial ID event key
         Serial.print(millis()); // Time stamp
         break;
       case 3: // Turn on reward
         if(giveReward){
           output(pinReward,1,HIGH);
-          Serial.print("_Ryy:"); // Trial ID event key
+          Serial.print("_S3:"); // Trial ID event key
         }
         else{
-          Serial.print("_Ryn:"); // Trial ID event key
+          Serial.print("_S4:"); // Trial ID event key
         }
         bgtimer(tReward);
         Serial.print(millis()); // Time stamp
@@ -375,7 +383,7 @@
         }
         transition(0);
         bgtimer(0);
-        Serial.print("_Rn:"); // Trial ID event key
+        Serial.print("_S5:"); // Trial ID event key
         Serial.print(millis()); // Time stamp
         break;
       default: // Default behaviour
