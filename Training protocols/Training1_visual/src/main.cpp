@@ -16,7 +16,7 @@
   11. Key stroke input for start stop
   12. Add interrupt for lick detector
   13. You (don't) need to deal with millis rollover!!! 
-    FIXME: https://arduino.stackexchange.com/questions/22994/resetting-millis-and-micros
+    FIXED: https://arduino.stackexchange.com/questions/22994/resetting-millis-and-micros
   */
 
 //:_:_:_:_:_:_:_:_:_:_:_:_:_:_:_:_: LIBRARY   :_:_:_:_:_:_:_:_:_:_:_:_:_:_:_:_:
@@ -29,6 +29,9 @@
 
   // ---Initialize LCD object
     LiquidCrystal lcd(12, 11, 5, 4, 3, 2);
+
+//:_:_:_:_:_:_:_:_:_:_:_:_:_:_:_:_: TRAINING :_:_:_:_:_:_:_:_:_:_:_:_:_:_:_:_:
+const int stateDepVec[7] = {1,2,3,4,5,6,0};
 
 //:_:_:_:_:_:_:_:_:_:_:_:_:_:_:_:_: VARIABLES :_:_:_:_:_:_:_:_:_:_:_:_:_:_:_:_:
   // ---General variables
@@ -60,7 +63,7 @@
     unsigned int tTimer;
     bool doTime = false;
     unsigned long pTimer2;
-    const int tTimer2 = 40; // This sets the rate of treadmill sampling (40 = 25Hz..)
+    const int tTimer2 = 100; // This sets the rate of treadmill sampling (40 = 25Hz..)
 
   // ---Trial varibles
     const int nTrialTypes = 6;
@@ -270,13 +273,13 @@
         if(analogRead(pinTM) != valTM){
           valTM = analogRead(pinTM);
           pTimer2 = millis();
-          Serial.print("TMV:"); // Trial ID event key
+          Serial.print("_TMV:"); // Trial ID event key
           Serial.print(valTM); // Trial ID
           Serial.print(":");
           Serial.print(pTimer2); // Time stamp
         }
     }
-
+ 
   //.............................. STATE PROGRESSION ..............................
     if (doRun){
       // Start block------------
@@ -343,7 +346,7 @@
           // 3. Treadmill
         
         // 10. Define next transition state
-        transition(1);
+        transition(stateDepVec[0]);
         break;
       case 1: // Turn on S1
         lcd.setCursor(cursorVec[1][vecBlock[currentTrial]],cursorVec[0][vecBlock[currentTrial]]);
@@ -354,13 +357,13 @@
         lcd.write(byte(0));
         lcd.write(byte(0));
         bgtimer(tS1);
-        transition(2);
+        transition(stateDepVec[1]);
         Serial.print("_S1:"); // Trial ID event key
         Serial.print(millis()); // Time stamp
         break;
       case 2: // Turn off S1 and start timer for reward offset
         lcd.clear();
-        transition(3);
+        transition(stateDepVec[2]);
         bgtimer(tOffset);
         Serial.print("_S2:"); // Trial ID event key
         Serial.print(millis()); // Time stamp
@@ -375,13 +378,13 @@
         }
         bgtimer(tReward);
         Serial.print(millis()); // Time stamp
-        transition(4);
+        transition(stateDepVec[3]);
         break;
       case 4: // Turn off reward
         if(giveReward){
           output(pinReward,1,LOW);
         }
-        transition(0);
+        transition(6);
         bgtimer(0);
         Serial.print("_S5:"); // Trial ID event key
         Serial.print(millis()); // Time stamp
