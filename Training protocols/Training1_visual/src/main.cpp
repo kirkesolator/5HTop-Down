@@ -27,11 +27,11 @@
   #include <util/atomic.h>            // For random seed gen
   #define randomSeed(s) srandom(s)    // For random seed gen
 
-  // ---Initialize LCD object
-    LiquidCrystal lcd(12, 11, 5, 4, 3, 2);
+  // ---Initialize LCD object ONLY IF USING 2x16 LCD SCREEN!!!
+    /*LiquidCrystal lcd(12, 11, 5, 4, 3, 2);*/
 
 //:_:_:_:_:_:_:_:_:_:_:_:_:_:_:_:_: TRAINING :_:_:_:_:_:_:_:_:_:_:_:_:_:_:_:_:
-const int stateDepVec[7] = {1,2,3,4,5,6,0};
+const int stateDepVec[6] = {1,2,3,4,5,0};
 
 //:_:_:_:_:_:_:_:_:_:_:_:_:_:_:_:_: VARIABLES :_:_:_:_:_:_:_:_:_:_:_:_:_:_:_:_:
   // ---General variables
@@ -40,6 +40,20 @@ const int stateDepVec[7] = {1,2,3,4,5,6,0};
     int state = 0;
     int nextstate = 0;
     bool giveReward; 
+  
+  // Valve configurations for 12 odor channels and 1 clean channel (first is clean)
+    const int nStim = 12;
+    int stimPins[4][nStim]; // Empty array to map pins to laters
+    int odorPins[4][nStim] = {
+      {0,0,0,3,3,3,6,6,6, 9, 9, 9},    // Valve 1
+      {1,2,2,4,5,5,7,8,8,10,11,11}, // Valve 2
+      {0,1,1,0,1,1,0,1,1, 0, 1, 1}, // Valve 1 value
+      {1,0,1,1,0,1,1,0,1, 1, 0, 1}  // Valve 2 value
+    };
+    int stimVal[2] = {LOW,HIGH}; // Pin write values
+
+    int nPins = sizeof(outPins)/sizeof(outPins[0]);
+    const int defaultStim = 0; // All zeros will leave olfactometer in exhaust mode (no odors or clean channel)
 
   // ---Lick detector variables
     const int interruptPin = 2; // This lick detector input MUST be either of {2,3,18,19,20,21} for interrupt to work properly
@@ -53,7 +67,9 @@ const int stateDepVec[7] = {1,2,3,4,5,6,0};
 
   // ---Time variables
     const int tITI = 1000;  // Inter-trial interval (ms)
-    const int tS1 = 500;    // S1 stimulus duration (ms)
+    const int tS1 = 1000;   // S1 stimulus duration (ms)
+    const int tS2 = 1000;   // S2 stimulus duration (ms)
+    int S2id = 0;           // S2 odor identity
     const int tReward = 20; // Reward duration (ms)
     const int tOffsetR[2] = {200, 800}; // Random wait range for reward onset after S1 offset (ms)
     int tOffset;
@@ -78,7 +94,7 @@ const int stateDepVec[7] = {1,2,3,4,5,6,0};
     int valTM = analogRead(pinTM);
 
     // ---Reward variables
-    unsigned int pReward[nTrialTypes] = {100,100,50,50,0,0};
+    unsigned int pReward[nTrialTypes] = {100,100,50,50,0,0}; // +++ THIS IS WRONG, NEED TO USE THE ODOR ID INSTEAD
     int pinReward[1] = {8};
 
   // ---Random generator variables
@@ -90,19 +106,20 @@ const int stateDepVec[7] = {1,2,3,4,5,6,0};
     int k;
     int j;
 
-  // ---LCD visual stimulus variables
-    // Define custom character shapes
-    byte full[8] = { // Full
-      B11111,B11111,
-      B11111,B11111,
-      B11111,B11111,
-      B11111,B11111,
-    };
-    // Stimulus-cursor matrix 
-    int cursorVec[2][6] = {
-      {0,1, 0,1,0, 1},
-      {0,5,10,0,5,10}
-    };
+      // ---LCD visual stimulus variables ONLY NEEDED IF USING THE 2x16 LCD SCREEN
+        // Define custom character shapes
+        /*
+        byte full[8] = { // Full
+          B11111,B11111,
+          B11111,B11111,
+          B11111,B11111,
+          B11111,B11111,
+        };
+        // Stimulus-cursor matrix 
+        int cursorVec[2][6] = {
+          {0,1, 0,1,0, 1},
+          {0,5,10,0,5,10}
+        }; */
 
 //:_:_:_:_:_:_:_:_:_:_:_:_:_:_:_:_: FUNCTIONS :_:_:_:_:_:_:_:_:_:_:_:_:_:_:_:_:
   // 1. f(random_generator)____________________________________________________________________________________
@@ -193,6 +210,16 @@ const int stateDepVec[7] = {1,2,3,4,5,6,0};
     */
   // -----------------------------------------------------------------------------------------------------------
 
+  // 6. f(map stimulus vector to output pins)___________________________________________________________________
+    void mapoutpins(int outPins[],int stimPins[4][nStim],int odorPins[4][nStim],int nStim){
+      for(int j = 0; j < 2; j++){
+        for (int i = 0; i <= nStim; i++){
+          stimPins[j][i] = outPins[odorPins[j][i]];
+        }
+      }
+    }
+  // -----------------------------------------------------------------------------------------------------------
+
   //:_:_:_:_:_:_:_:_:_:_:_:_:_:_:_:_: ISR :_:_:_:_:_:_:_:_:_:_:_:_:_:_:_:_:
   // Interrupt Service Routine for lick detection_______________________________________________________________
     void recLick(){
@@ -227,9 +254,12 @@ const int stateDepVec[7] = {1,2,3,4,5,6,0};
     pinMode(interruptPin, INPUT_PULLUP); //TODO: check if pullup needed
     attachInterrupt(digitalPinToInterrupt(interruptPin), recLick, CHANGE);
 
-    // 6. Start LCD and create custom character
-    lcd.begin(16, 2);
-    lcd.createChar(0, full);
+          // 6. Start LCD and create custom character ONLY USE IF 2x16 LCD SCREEN!!
+          /*lcd.begin(16, 2);
+          lcd.createChar(0, full);*/
+
+    // Map S2 output pins onto simulus matrix
+    mapoutpins(outPins,stimPins,odorPins,nStim);
 
     // End. Wait with next stage until serial monitor is running
     while (! Serial);
@@ -325,15 +355,6 @@ const int stateDepVec[7] = {1,2,3,4,5,6,0};
         Serial.print(":");
         Serial.print(millis()); // Time stamp
 
-        /* ONLY an option to use LCD for this if NOT using LCD for visual stimulation.....
-        // 8. Write to LCD: Set cursor and clear LCD
-        lcd.clear();
-        lcd.print("Block: "); // Need block counter
-        lcd.println(Nblocks);
-        lcd.print("Trial: "); // Need trial counter
-        lcd.print(Nblocks);
-        */
-
         // 9. Send serial data to python
           // 1. Lick data
           for (i = 0; i < lickCount; i++){
@@ -342,56 +363,91 @@ const int stateDepVec[7] = {1,2,3,4,5,6,0};
             Serial.print(":"); // Lick timestamp key
             Serial.print(vecLick[1][i]);
           }
-          // 2. State progression data
-          // 3. Treadmill
         
         // 10. Define next transition state
         transition(stateDepVec[0]);
         break;
+
+        // Figure out this trial's S2 odor identity
+        S2id = 0;
+
       case 1: // Turn on S1
-        lcd.setCursor(cursorVec[1][vecBlock[currentTrial]],cursorVec[0][vecBlock[currentTrial]]);
-        for(int i = 0; i < 6; i++){
-          lcd.write(byte(0));
-        }
-        lcd.setCursor(cursorVec[1][vecBlock[currentTrial]]+2,!cursorVec[0][vecBlock[currentTrial]]);
-        lcd.write(byte(0));
-        lcd.write(byte(0));
+            // ONLY IF USING THE 2x16 LCD SCREEN!!!
+              /*lcd.setCursor(cursorVec[1][vecBlock[currentTrial]],cursorVec[0][vecBlock[currentTrial]]);
+              for(int i = 0; i < 6; i++){
+                lcd.write(byte(0));
+              }
+              lcd.setCursor(cursorVec[1][vecBlock[currentTrial]]+2,!cursorVec[0][vecBlock[currentTrial]]);
+              lcd.write(byte(0));
+              lcd.write(byte(0));*/
+
         bgtimer(tS1);
         transition(stateDepVec[1]);
         Serial.print("_S1:"); // Trial ID event key
         Serial.print(millis()); // Time stamp
         break;
-      case 2: // Turn off S1 and start timer for reward offset
-        lcd.clear();
+
+      case 2: // Turn off S1 
+              // ONLY IF USING THE 2x16 LCD SCREEN!!!
+                /*lcd.clear();*/
         transition(stateDepVec[2]);
-        bgtimer(tOffset);
+        bgtimer(0);
         Serial.print("_S2:"); // Trial ID event key
         Serial.print(millis()); // Time stamp
         break;
-      case 3: // Turn on reward
+
+      case 3: // Turn on S2
+        // Turn on the correct combination of pisn to drive odor delivery
+        for (int i = 0; i < 2; i++){
+          digitalWrite(stimPins[i][S2id],stimVal[stimPins[i+2][S2id]]); // 
+          digitalWrite(stimPins[i][defaultStim],LOW);
+        }
+
+        bgtimer(tS2);
+        transition(stateDepVec[3]);
+        Serial.print("_S3:"); // Trial ID event key
+        Serial.print(millis()); // Time stamp
+        break;
+
+      case 4: // Turn off S2 and start timer for reward offset
+              // ONLY IF USING THE 2x16 LCD SCREEN!!!
+              /*lcd.clear();*/
+        // Reset the stimulus ID and pin vector
+        for (int i = 0; i < 2; i++){
+          digitalWrite(stimPins[i][S2id],LOW);
+          digitalWrite(stimPins[i][defaultStim],stimVal[stimPins[i+2][defaultStim]]);
+        }
+        transition(stateDepVec[4]);
+        bgtimer(tOffset);
+        Serial.print("_S4:"); // Trial ID event key
+        Serial.print(millis()); // Time stamp
+        break;
+
+      case 5: // Turn on reward
         if(giveReward){
           output(pinReward,1,HIGH);
-          Serial.print("_S3:"); // Trial ID event key
+          Serial.print("_S5:"); // Trial ID event key
         }
         else{
-          Serial.print("_S4:"); // Trial ID event key
+          Serial.print("_S6:"); // Trial ID event key
         }
         bgtimer(tReward);
         Serial.print(millis()); // Time stamp
-        transition(stateDepVec[3]);
+        transition(stateDepVec[5]);
         break;
-      case 4: // Turn off reward
+
+      case 6: // Turn off reward
         if(giveReward){
           output(pinReward,1,LOW);
         }
-        transition(6);
+        transition(stateDepVec[6]);
         bgtimer(0);
-        Serial.print("_S5:"); // Trial ID event key
+        Serial.print("_S7:"); // Trial ID event key
         Serial.print(millis()); // Time stamp
         break;
+
       default: // Default behaviour
         break;
       }
     }
   }
-
