@@ -106,21 +106,6 @@ const int stateDepVec[6] = {1,2,3,4,5,0};
     int k;
     int j;
 
-      // ---LCD visual stimulus variables ONLY NEEDED IF USING THE 2x16 LCD SCREEN
-        // Define custom character shapes
-        /*
-        byte full[8] = { // Full
-          B11111,B11111,
-          B11111,B11111,
-          B11111,B11111,
-          B11111,B11111,
-        };
-        // Stimulus-cursor matrix 
-        int cursorVec[2][6] = {
-          {0,1, 0,1,0, 1},
-          {0,5,10,0,5,10}
-        }; */
-
 //:_:_:_:_:_:_:_:_:_:_:_:_:_:_:_:_: FUNCTIONS :_:_:_:_:_:_:_:_:_:_:_:_:_:_:_:_:
   // 1. f(random_generator)____________________________________________________________________________________
     void trueRandSeed(){
@@ -372,14 +357,7 @@ const int stateDepVec[6] = {1,2,3,4,5,0};
         S2id = 0;
 
       case 1: // Turn on S1
-            // ONLY IF USING THE 2x16 LCD SCREEN!!!
-              /*lcd.setCursor(cursorVec[1][vecBlock[currentTrial]],cursorVec[0][vecBlock[currentTrial]]);
-              for(int i = 0; i < 6; i++){
-                lcd.write(byte(0));
-              }
-              lcd.setCursor(cursorVec[1][vecBlock[currentTrial]]+2,!cursorVec[0][vecBlock[currentTrial]]);
-              lcd.write(byte(0));
-              lcd.write(byte(0));*/
+
 
         bgtimer(tS1);
         transition(stateDepVec[1]);
@@ -388,8 +366,7 @@ const int stateDepVec[6] = {1,2,3,4,5,0};
         break;
 
       case 2: // Turn off S1 
-              // ONLY IF USING THE 2x16 LCD SCREEN!!!
-                /*lcd.clear();*/
+
         transition(stateDepVec[2]);
         bgtimer(0);
         Serial.print("_S2:"); // Trial ID event key
@@ -410,8 +387,7 @@ const int stateDepVec[6] = {1,2,3,4,5,0};
         break;
 
       case 4: // Turn off S2 and start timer for reward offset
-              // ONLY IF USING THE 2x16 LCD SCREEN!!!
-              /*lcd.clear();*/
+
         // Reset the stimulus ID and pin vector
         for (int i = 0; i < 2; i++){
           digitalWrite(stimPins[i][S2id],LOW);
