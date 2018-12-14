@@ -5,12 +5,6 @@ import serial, os
 from serial.tools import list_ports
 import msvcrt
 
-# while True:
-#     print "Doing a function"
-#     if msvcrt.getch():
-#         print "Key pressed: %s" % msvcrt.getch()
-
-
 if 1:
     # Set up info for the data file header
     info = {
@@ -55,10 +49,20 @@ arduino = serial.Serial(ports[0].device, bRate, timeout = 0.5)
 
 print('Arduino set up in python script, waiting for keypress= s to start training')
 
+doRun = False
+while not doRun:
+    if msvcrt.kbhit():
+            keyMe = msvcrt.getch()
+            
+            if keyMe == 's':
+                doRun = True
+                print "Starting behavioural protocol"
+                break
+
 # for i in range(1):
 #     print(arduino.readline())
 
-if 0:
+if doRun:
     # Create visual stimulation window
     win=visual.Window(size = (1200,800),winType = 'pyglet',screen = 1,fullscr = True, units = 'height')
 
@@ -66,7 +70,7 @@ if 0:
     gabor = visual.GratingStim(win, tex='sin', mask='gauss', sf=6, name='gabor',size=0.35)
     gabor.setAutoDraw(True)  # Automatically draw every frame
     gabor.autoLog=False # Turn off messages about phase changes (or it will go crazy)
-
+    test = []
     # Run stimulus presentation
     for useOri in (0,60,120,180,240,300): # 6 equidistant angles
         gabor.pos = (np.sin(np.pi*useOri/180)*.35, np.cos(np.pi*useOri/180)*.35)
@@ -79,5 +83,15 @@ if 0:
                 gabor.contrast = 1
                 gabor.setPhase(0.08, '+')
                 win.flip()
-    f.close()
+                # test.append(arduino.readline())
+            if msvcrt.kbhit():
+                keyMe = msvcrt.getch()
+                
+                if keyMe == 's':
+                    doRun = False
+                    print "Stopping behavioural protocol"
+                    break
+
+f.close()
 os.chdir(path)
+arduino.close()
