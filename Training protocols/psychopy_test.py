@@ -1,3 +1,4 @@
+#%% Imports
 from psychopy import visual, core
 import numpy as np
 import datetime as dt
@@ -5,20 +6,20 @@ import serial, os, time
 from serial.tools import list_ports
 import matplotlib.pyplot as plt
 
-# Windows
-if os.name == 'nt':
+# Keystroke detection things
+# OS dependencies:
+if os.name == 'nt': #windows
     import msvcrt
-
-# Posix (Linux, OS X)
-else:
+else: # OSX/linux
     import sys
     import termios
     import atexit
     from select import select
 
 
+#%% Classes
+# Class for keystroke functions
 class KBHit:
-    
     def __init__(self):
         '''Creates a KBHit object that you can call to do various keyboard things.
         '''
@@ -86,23 +87,27 @@ class KBHit:
             dr,dw,de = select([sys.stdin], [], [], 0)
             return dr != []
 
-#%% Functions
+#%% Functions  *=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=
 def onoffVisual(cVal1, cVal2):
     gabor.contrast = cVal1
     line1.contrast = cVal2
     line2.contrast = cVal2
     win.flip() # Flip image onto screen
 
-def checkArduino(sflag):
+def checkArduino():
     # waiting = arduino.in_waiting  # find num of bytes currently waiting in hardware
     # buffer += [chr(c) for c in port.read(waiting)] # read them, convert to ascii
+    global sflag, frames
     data = arduino.read(size=1)
     if data:
-        if data is 'Q':
-            useOri = 60#vStimOri[int(data)]
+        dataBuffer.append(data)
+        dataBuffer.pop(0)
+        if dataBuffer[0] is 'Q':
+            useOri = vStimOri[int(dataBuffer[1])]
             gabor.pos = (np.sin(np.pi*useOri/180)*.35, np.cos(np.pi*useOri/180)*.35)
             gabor.ori = useOri + 270 # Grating orthogonal to positional angle
             onoffVisual(1,1)
+            frames = 0
             sflag = True
             win.flip()
         elif data is 'P':
@@ -110,7 +115,6 @@ def checkArduino(sflag):
             sflag = False
             win.flip()
         f.write(data)
-        return sflag
 
 def serInitialization():
     # Set up arduino serial connection
@@ -130,9 +134,10 @@ def serInitialization():
         print "Error: serial port cannot be initialized"
         quit()
 
+#%% Setup: info and file handling *=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=
+# Set up communcation with arduino
 arduino = serInitialization()
 
-#%% Setup: info and file handling
 # Set up info for the data file header
 info = {
     "experimenter" : "",
@@ -153,7 +158,7 @@ print ("The current working directory is %s" % path)
 if not os.path.exists(info['mouse']):
     os.mkdir(info['mouse'])
 
-    # Enter mouse directory
+# Enter mouse directory
 os.chdir(path + '/' + info['mouse'])
 
 # Open text file to write
@@ -162,9 +167,12 @@ f = open(filename,'a+')
 
 f.write("Experimenter: " + info['experimenter'] + "\n" + 'Datetime: ' + info['datetime'] + '\n' + 'MouseID: ' + info['mouse'] + '\n')
 
+global sflag
 sflag = False
+global dataBuffer
+dataBuffer = [0,0]
 
-#%% Setup: Serial communication and presentation window
+#%% Setup: Serial communication and presentation window *=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=
 # Create visual stimulation window
 win = visual.Window(size=(512,512), winType='pyglet', screen=0, fullscr=False, units='height')
 
@@ -173,7 +181,7 @@ gabor = visual.GratingStim(win, tex='sin', mask='gauss', sf=6, name='gabor', siz
 gabor.setAutoDraw(True)  # Automatically draw every frame
 gabor.autoLog = False # Turn off messages about phase changes (or it will go crazy)
 
-# Generate the visual stimulus set (6)
+# Generate the visual stimulus set (6 orientations)
 vStimOri = [0,60,120,180,240,300]
 
 # Generate center reference cross in visual stimulus
@@ -193,9 +201,10 @@ print('Visual presentation window initialized successfully')
 doRun = False
 print('\n............\nWaiting for spacebar to start/pause training\nEsc x 2 to quit protocol completely')
 
+# Instantiate the keypress class (now system invariant!)
 msvcrt = KBHit()
 
-# Wait for key press
+# Wait for initial key press to start the whole behavioural protocol
 while not doRun:
     if msvcrt.kbhit():
             keyMe = msvcrt.getch()
@@ -208,22 +217,26 @@ while not doRun:
 
 
 #%% Run main loop
-# Run stimulus presentation 
-tStim = 1 # Stimulus presentation duration
-counter = 0
+# Run protocol
+tStim = 1 # Stimulus presentation duration (s)
+framerate = 60 # screen refresh rate (make sure this is correct, it's possible to get this automatically via monotor module in psychopy)
+global frames
+frames = 0
 while doRun:
     # Get arduino data
-    sflag = checkArduino(sflag)
+    checkArduino()
 
-    if sflag:
+    # Run Gabor animation if time
+    if sflag and frames < framerate*tStim:
+        frames += 1 # Keep track of frames
         gabor.setPhase(0.1, '+')
         win.flip()
     
     # Check for keypresses
     if msvcrt.kbhit():
         keyMe = msvcrt.getch()
-        # Pausing
-        if ord(keyMe) is 32:
+        # Pausing protocol
+        if ord(keyMe) is 32: # 32 is spacebar
             print "Pausing behavioural protocol (spacebar to continue)"
             arduino.flush()
             arduino.write('S')
@@ -235,8 +248,8 @@ while doRun:
             arduino.write('S')
             print "Continuing behavioural protocol"
             
-        # Quitting
-        if ord(keyMe) is 27:
+        # Quitting protocol
+        if ord(keyMe) is 27: # 27 is ESC
             print('Press esc again to quit or any other key to keep running')
             onoffVisual(0,1)
             keyMe = msvcrt.getch()
