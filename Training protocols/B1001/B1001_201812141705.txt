@@ -1,6 +1,0 @@
-Experimenter: Tor
-Datetime: 201812141705
-MouseID: B1001
-Experimenter: Tor
-Datetime: 201812141705
-MouseID: B1001
