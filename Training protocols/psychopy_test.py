@@ -200,7 +200,7 @@ print('Visual presentation window initialized successfully')
 
 # Set up protocol ready for start
 doRun = False
-print('\n............\nWaiting for spacebar to start/pause training\nEsc x 2 to quit protocol completely')
+print('\n............\n\nWaiting for spacebar to start/pause training\nEsc x 2 to quit protocol completely')
 
 # Instantiate the keypress class (now system invariant!)
 msvcrt = KBHit()

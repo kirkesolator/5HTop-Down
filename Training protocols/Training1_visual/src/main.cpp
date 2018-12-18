@@ -1,25 +1,8 @@
 //:_:_:_:_:_:_:_:_:_:_:_:_:_:_:_:_: OVERVIEW  :_:_:_:_:_:_:_:_:_:_:_:_:_:_:_:_:
   /*
-  1. Define trial types
-  --- For visual only, only 6 stimuli, BUT if we want some play on statistics, should perhaps include in this
-  2. Determine block structure
-  --- Should have several rounds of the trial types   - x3? so blocks of 18 trials?
-  --- Do we want to have a vector that is shuffled to generate random trial type progression?
-  3. Set up communication with PYTHON
-  TODO: 4. Write a PYTHON script to save (and PLOT) progress
-  5. Set up RANDOM function
-  6. Set up (multi) timer
-  7. Set up STATE progression
-  8. Remember to put in a section (ITI) for sending and receiving data
-  9. Add visual stimulus function
-  10. Set up random wait time between stimulus offset and reward delivery (use map function)
-  11. Key stroke input for start stop
-  12. Add interrupt for lick detector
-  13. You (don't) need to deal with millis rollover!!! 
-    FIXED: https://arduino.stackexchange.com/questions/22994/resetting-millis-and-micros
   */
 
-//:_:_:_:_:_:_:_:_:_:_:_:_:_:_:_:_: LIBRARY   :_:_:_:_:_:_:_:_:_:_:_:_:_:_:_:_:
+//:_:_:_:_:_:_:_:_:_:_:_:_:_:_:_:_: LIBRARY :_:_:_:_:_:_:_:_:_:_:_:_:_:_:_:_:
   #include <Arduino.h>
   #include <LiquidCrystal.h>
   #include <avr/interrupt.h>          // For random seed gen
@@ -27,39 +10,37 @@
   #include <util/atomic.h>            // For random seed gen
   #define randomSeed(s) srandom(s)    // For random seed gen
 
-  // ---Initialize LCD object ONLY IF USING 2x16 LCD SCREEN!!!
-    /*LiquidCrystal lcd(12, 11, 5, 4, 3, 2);*/
 
 //:_:_:_:_:_:_:_:_:_:_:_:_:_:_:_:_: TRAINING :_:_:_:_:_:_:_:_:_:_:_:_:_:_:_:_:
-const int stateDepVec[6] = {1,2,3,4,5,0};
+  const int stateDepVec[6] = {1,2,3,4,5,0};
 
 //:_:_:_:_:_:_:_:_:_:_:_:_:_:_:_:_: VARIABLES :_:_:_:_:_:_:_:_:_:_:_:_:_:_:_:_:
   // ---General variables
-    int outPins[9] = {22,23,24,25,26,27,28,29}; // Needs to be filled with actual output pin IDs (EXCLUDING lick detector pin)
+    int outPins[9] = {22,23,24,25,26,27,28,29,2}; // Needs to be filled with actual output pin IDs (EXCLUDING lick detector pin)
     bool doRun = false;
     int state = 0;
     int nextstate = 0;
     bool giveReward; 
   
-  // Valve configurations for 12 odor channels and 1 clean channel (first is clean)
-    const int nStim = 12;
-    int stimPins[4][nStim]; // Empty array to map pins to laters
-    // int odorPins[4][nStim] = {
-    //   {0,0,0,3,3,3,6,6,6, 9, 9, 9},    // Valve 1
-    //   {1,2,2,4,5,5,7,8,8,10,11,11}, // Valve 2
-    //   {0,1,1,0,1,1,0,1,1, 0, 1, 1}, // Valve 1 value
-    //   {1,0,1,1,0,1,1,0,1, 1, 0, 1}  // Valve 2 value
-    // };
-    int odorPins[4][nStim] = {
-      {0,0,0,3,3,3,6},    // Valve 1
-      {1,2,2,4,5,5,7}, // Valve 2
-      {0,1,1,0,1,1,0}, // Valve 1 value
-      {1,0,1,1,0,1,1}  // Valve 2 value
-    };
-    int stimVal[2] = {LOW,HIGH}; // Pin write values
+  // ---Stimulus varibles
+    const int tS1 = 1000;   // S1 stimulus duration (ms)
+    const int tS2 = 1000;   // S2 stimulus duration (ms)
+    int S2id = 0;           // S2 odor identity
+    const int vDelay = 50;  // S1 onset/offset delay because of serial port
 
-    int nPins = sizeof(outPins)/sizeof(outPins[0]);
-    const int defaultStim = 0; // All zeros will leave olfactometer in exhaust mode (no odors or clean channel)
+    // Olfactometer
+      const int nStim = 7;
+      int stimPins[4][nStim]; // Empty array to map pins to laters
+      int odorPins[4][nStim] = {
+        {0,0,0,3,3,3,6},    // Valve 1
+        {1,2,2,4,5,5,7}, // Valve 2
+        {0,1,1,0,1,1,0}, // Valve 1 value
+        {1,0,1,1,0,1,1}  // Valve 2 value
+      };
+      int stimVal[2] = {LOW,HIGH}; // Pin write values
+
+      int nPins = sizeof(outPins)/sizeof(outPins[0]);
+      const int defaultStim = 0; // All zeros will leave olfactometer in exhaust mode (no odors or clean channel)
 
   // ---Lick detector variables
     const int interruptPin = 2; // This lick detector input MUST be either of {2,3,18,19,20,21} for interrupt to work properly
@@ -73,9 +54,6 @@ const int stateDepVec[6] = {1,2,3,4,5,0};
 
   // ---Time variables
     const int tITI = 1000;  // Inter-trial interval (ms)
-    const int tS1 = 1000;   // S1 stimulus duration (ms)
-    const int tS2 = 1000;   // S2 stimulus duration (ms)
-    int S2id = 0;           // S2 odor identity
     const int tReward = 20; // Reward duration (ms)
     const int tOffsetR[2] = {200, 800}; // Random wait range for reward onset after S1 offset (ms)
     int tOffset;
@@ -85,7 +63,7 @@ const int stateDepVec[6] = {1,2,3,4,5,0};
     unsigned int tTimer;
     bool doTime = false;
     unsigned long pTimer2;
-    const int tTimer2 = 100; // This sets the rate of treadmill sampling (40 = 25Hz..)
+    const int tTimer2 = 40; // This sets the rate of treadmill sampling (40 = 25Hz..)
 
   // ---Trial varibles
     const int nTrialTypes = 6;
@@ -100,7 +78,7 @@ const int stateDepVec[6] = {1,2,3,4,5,0};
     int valTM = analogRead(pinTM);
 
     // ---Reward variables
-    unsigned int pReward[nTrialTypes] = {100,100,50,50,0,0}; // +++ THIS IS WRONG, NEED TO USE THE ODOR ID INSTEAD
+    unsigned int pReward[nTrialTypes] = {100,100,50,50,0,0}; // TODO:+++ THIS IS WRONG, NEED TO USE THE ODOR ID INSTEAD
     int pinReward[1] = {8};
 
   // ---Random generator variables
@@ -246,10 +224,6 @@ const int stateDepVec[6] = {1,2,3,4,5,0};
     pinMode(interruptPin, INPUT_PULLUP); //TODO: check if pullup needed
     attachInterrupt(digitalPinToInterrupt(interruptPin), recLick, CHANGE);
 
-          // 6. Start LCD and create custom character ONLY USE IF 2x16 LCD SCREEN!!
-          /*lcd.begin(16, 2);
-          lcd.createChar(0, full);*/
-
     // Map S2 output pins onto simulus matrix
     mapoutpins(outPins,stimPins,odorPins,nStim);
 
@@ -310,7 +284,7 @@ const int stateDepVec[6] = {1,2,3,4,5,0};
       switch(state){
       case 0: 
         // 1. Start ITI timer
-        bgtimer(tITI);
+        bgtimer(tITI-vDelay);
 
         // 2. Define current trial as modulo trial types
         currentTrial = Ntrials % (nTrialsinBlock * nTrialTypes);
@@ -366,8 +340,6 @@ const int stateDepVec[6] = {1,2,3,4,5,0};
         S2id = 0;
 
       case 1: // Turn on S1
-
-
         bgtimer(tS1);
         transition(stateDepVec[1]);
         Serial.print("\nQ"); // Trial ID event key
@@ -378,21 +350,20 @@ const int stateDepVec[6] = {1,2,3,4,5,0};
         break;
 
       case 2: // Turn off S1 
-
         transition(stateDepVec[2]);
-        bgtimer(0);
+        bgtimer(vDelay);
         Serial.print("\nP:"); // Trial ID event key
         Serial.println(millis()); // Time stamp
         digitalWrite(13, LOW);
         break;
 
       case 3: // Turn on S2
-        // Turn on the correct combination of pisn to drive odor delivery
-        // for (int i = 0; i < 2; i++){
-        //   digitalWrite(stimPins[i][S2id],stimVal[stimPins[i+2][S2id]]); // 
-        //   digitalWrite(stimPins[i][defaultStim],LOW);
-        // }
-
+        // Turn on the correct combination of pins to drive odor delivery
+        for (int i = 0; i < 2; i++){
+          digitalWrite(stimPins[i][S2id],stimVal[stimPins[i+2][S2id]]); // 
+          digitalWrite(stimPins[i][defaultStim],LOW);
+        }
+        digitalWrite(13,HIGH);
         bgtimer(tS2);
         transition(stateDepVec[3]);
         Serial.print("\nS3:"); // Trial ID event key
@@ -400,12 +371,12 @@ const int stateDepVec[6] = {1,2,3,4,5,0};
         break;
 
       case 4: // Turn off S2 and start timer for reward offset
-
         // Reset the stimulus ID and pin vector
-        // for (int i = 0; i < 2; i++){
-        //   digitalWrite(stimPins[i][S2id],LOW);
-        //   digitalWrite(stimPins[i][defaultStim],stimVal[stimPins[i+2][defaultStim]]);
-        // }
+        for (int i = 0; i < 2; i++){
+          digitalWrite(stimPins[i][S2id],LOW);
+          digitalWrite(stimPins[i][defaultStim],stimVal[stimPins[i+2][defaultStim]]);
+        }
+        digitalWrite(13,LOW);
         transition(stateDepVec[4]);
         bgtimer(tOffset);
         Serial.print("\nS4:"); // Trial ID event key
