@@ -35,7 +35,7 @@ const int stateDepVec[6] = {1,2,3,4,5,0};
 
 //:_:_:_:_:_:_:_:_:_:_:_:_:_:_:_:_: VARIABLES :_:_:_:_:_:_:_:_:_:_:_:_:_:_:_:_:
   // ---General variables
-    int outPins[1] = {8}; // Needs to be filled with actual output pin IDs (EXCLUDING lick detector pin)
+    int outPins[9] = {22,23,24,25,26,27,28,29}; // Needs to be filled with actual output pin IDs (EXCLUDING lick detector pin)
     bool doRun = false;
     int state = 0;
     int nextstate = 0;
@@ -44,11 +44,17 @@ const int stateDepVec[6] = {1,2,3,4,5,0};
   // Valve configurations for 12 odor channels and 1 clean channel (first is clean)
     const int nStim = 12;
     int stimPins[4][nStim]; // Empty array to map pins to laters
+    // int odorPins[4][nStim] = {
+    //   {0,0,0,3,3,3,6,6,6, 9, 9, 9},    // Valve 1
+    //   {1,2,2,4,5,5,7,8,8,10,11,11}, // Valve 2
+    //   {0,1,1,0,1,1,0,1,1, 0, 1, 1}, // Valve 1 value
+    //   {1,0,1,1,0,1,1,0,1, 1, 0, 1}  // Valve 2 value
+    // };
     int odorPins[4][nStim] = {
-      {0,0,0,3,3,3,6,6,6, 9, 9, 9},    // Valve 1
-      {1,2,2,4,5,5,7,8,8,10,11,11}, // Valve 2
-      {0,1,1,0,1,1,0,1,1, 0, 1, 1}, // Valve 1 value
-      {1,0,1,1,0,1,1,0,1, 1, 0, 1}  // Valve 2 value
+      {0,0,0,3,3,3,6},    // Valve 1
+      {1,2,2,4,5,5,7}, // Valve 2
+      {0,1,1,0,1,1,0}, // Valve 1 value
+      {1,0,1,1,0,1,1}  // Valve 2 value
     };
     int stimVal[2] = {LOW,HIGH}; // Pin write values
 
@@ -63,7 +69,7 @@ const int stateDepVec[6] = {1,2,3,4,5,0};
 
   // ---Serial communication
     int incomingByte = 0;
-    const unsigned int rateBaud = 9600; // Baud rate for serial com. !!CRITICAL that this is same in python script!!
+    const unsigned int rateBaud = 28800; // Baud rate for serial com. !!CRITICAL that this is same in python script!!
 
   // ---Time variables
     const int tITI = 1000;  // Inter-trial interval (ms)
@@ -259,19 +265,18 @@ const int stateDepVec[6] = {1,2,3,4,5,0};
     if (Serial.available() > 0) {
       // Read the incoming byte
       incomingByte = Serial.read();
-      Serial.print(incomingByte);
       Serial.flush();
       // Start/stop reward delivery via SPACE BAR
       if (incomingByte == 83){
         doRun = !doRun;
         if (doRun){
-          Serial.print(":::Started:::");
+          Serial.print("\n:S:");
           Serial.println(millis()); // Time stamp
           doRun = true;
           bgtimer(0);
         }
         else if (!doRun){
-          Serial.print(":::Stopped:::");
+          Serial.print("\n:SS:");
           Serial.println(millis()); // Time stamp
           doRun = false;
           doTime = false;
@@ -292,7 +297,7 @@ const int stateDepVec[6] = {1,2,3,4,5,0};
         if(analogRead(pinTM) != valTM){
           valTM = analogRead(pinTM);
           pTimer2 = millis();
-          Serial.print("_T:"); // Trial ID event key
+          Serial.print(" T"); // Trial ID event key
           Serial.print(valTM); // Trial ID
           Serial.print(":");
           Serial.print(pTimer2); // Time stamp
@@ -317,7 +322,7 @@ const int stateDepVec[6] = {1,2,3,4,5,0};
             swap(&vecBlock[k], &vecBlock[j]); // Swap vecBlock[k] with the element at random index
           }
           Nblocks += 1; // Update block counter
-          Serial.print("_::Bn"); // Trial ID event key
+          Serial.print(":Bn"); // Trial ID event key
           Serial.print(Nblocks); // Trial ID
           Serial.print(":");
           Serial.println(millis()); // Time stamp
@@ -339,7 +344,7 @@ const int stateDepVec[6] = {1,2,3,4,5,0};
 
         // 7. Update trial counter
         Ntrials += 1;
-        Serial.print("_:_Tn"); // Trial ID event key
+        Serial.print("Tn"); // Trial ID event key
         Serial.print(Ntrials); // Trial ID
         Serial.print(":");
         Serial.println(millis()); // Time stamp
@@ -347,7 +352,7 @@ const int stateDepVec[6] = {1,2,3,4,5,0};
         // 9. Send serial data to python
           // 1. Lick data
           for (i = 0; i < lickCount; i++){
-            Serial.print("_L"); // Lick event key
+            Serial.print("L"); // Lick event key
             Serial.print(vecLick[0][i]);
             Serial.print(":"); // Lick timestamp key
             Serial.println(vecLick[1][i]);
@@ -365,55 +370,55 @@ const int stateDepVec[6] = {1,2,3,4,5,0};
 
         bgtimer(tS1);
         transition(stateDepVec[1]);
-        Serial.print("\n_S1"); // Trial ID event key
+        Serial.print("\nQ"); // Trial ID event key
         Serial.print(vecBlock[currentTrial]);
         Serial.print(':');
         Serial.println(millis()); // Time stamp
-        digitalWrite(8, HIGH);
+        digitalWrite(13, HIGH);
         break;
 
       case 2: // Turn off S1 
 
         transition(stateDepVec[2]);
         bgtimer(0);
-        Serial.print("\n_S2:"); // Trial ID event key
+        Serial.print("\nP:"); // Trial ID event key
         Serial.println(millis()); // Time stamp
-        digitalWrite(8, LOW);
+        digitalWrite(13, LOW);
         break;
 
       case 3: // Turn on S2
         // Turn on the correct combination of pisn to drive odor delivery
-        for (int i = 0; i < 2; i++){
-          digitalWrite(stimPins[i][S2id],stimVal[stimPins[i+2][S2id]]); // 
-          digitalWrite(stimPins[i][defaultStim],LOW);
-        }
+        // for (int i = 0; i < 2; i++){
+        //   digitalWrite(stimPins[i][S2id],stimVal[stimPins[i+2][S2id]]); // 
+        //   digitalWrite(stimPins[i][defaultStim],LOW);
+        // }
 
         bgtimer(tS2);
         transition(stateDepVec[3]);
-        Serial.print("\n_S3:"); // Trial ID event key
+        Serial.print("\nS3:"); // Trial ID event key
         Serial.println(millis()); // Time stamp
         break;
 
       case 4: // Turn off S2 and start timer for reward offset
 
         // Reset the stimulus ID and pin vector
-        for (int i = 0; i < 2; i++){
-          digitalWrite(stimPins[i][S2id],LOW);
-          digitalWrite(stimPins[i][defaultStim],stimVal[stimPins[i+2][defaultStim]]);
-        }
+        // for (int i = 0; i < 2; i++){
+        //   digitalWrite(stimPins[i][S2id],LOW);
+        //   digitalWrite(stimPins[i][defaultStim],stimVal[stimPins[i+2][defaultStim]]);
+        // }
         transition(stateDepVec[4]);
         bgtimer(tOffset);
-        Serial.print("\n_S4:"); // Trial ID event key
+        Serial.print("\nS4:"); // Trial ID event key
         Serial.println(millis()); // Time stamp
         break;
 
       case 5: // Turn on reward
         if(giveReward){
           output(pinReward,1,HIGH);
-          Serial.print("\n_S5:"); // Trial ID event key
+          Serial.print("\nS5:"); // Trial ID event key
         }
         else{
-          Serial.print("\n_S6:"); // Trial ID event key
+          Serial.print("\nS6:"); // Trial ID event key
         }
         bgtimer(tReward);
         Serial.println(millis()); // Time stamp
@@ -426,7 +431,7 @@ const int stateDepVec[6] = {1,2,3,4,5,0};
         }
         transition(stateDepVec[6]);
         bgtimer(0);
-        Serial.print("\n_S7:"); // Trial ID event key
+        Serial.print("\nS7:"); // Trial ID event key
         Serial.println(millis()); // Time stamp
         break;
 
