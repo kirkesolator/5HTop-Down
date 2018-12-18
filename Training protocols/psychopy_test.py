@@ -1,4 +1,4 @@
-#%% Imports
+#%% Imports ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 from psychopy import visual, core
 import numpy as np
 import datetime as dt
@@ -17,7 +17,7 @@ else: # OSX/linux
     from select import select
 
 
-#%% Classes
+#%% Classes ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 # Class for keystroke functions
 class KBHit:
     def __init__(self):
@@ -87,7 +87,7 @@ class KBHit:
             dr,dw,de = select([sys.stdin], [], [], 0)
             return dr != []
 
-#%% Functions  *=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=
+#%% Functions  ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 def onoffVisual(cVal1, cVal2):
     gabor.contrast = cVal1
     line1.contrast = cVal2
@@ -98,23 +98,24 @@ def checkArduino():
     # waiting = arduino.in_waiting  # find num of bytes currently waiting in hardware
     # buffer += [chr(c) for c in port.read(waiting)] # read them, convert to ascii
     global sflag, frames
-    data = arduino.read(size=1)
+    data = arduino.read(size=1) # Read from serial only ONE byte at the time
     if data:
-        dataBuffer.append(data)
-        dataBuffer.pop(0)
-        if dataBuffer[0] is 'Q':
-            useOri = vStimOri[int(dataBuffer[1])]
-            gabor.pos = (np.sin(np.pi*useOri/180)*.35, np.cos(np.pi*useOri/180)*.35)
-            gabor.ori = useOri + 270 # Grating orthogonal to positional angle
-            onoffVisual(1,1)
-            frames = 0
-            sflag = True
-            win.flip()
-        elif data is 'P':
-            onoffVisual(0,1)
-            sflag = False
-            win.flip()
-        f.write(data)
+        # Make your own 2 element buffer
+        dataBuffer.append(data) # Add data
+        dataBuffer.pop(0) # Remove data
+        if dataBuffer[0] is 'Q': # Look for S1 trigger ('Q')
+            useOri = vStimOri[int(dataBuffer[1])] # Pull gabor orientation from arduino
+            gabor.pos = (np.sin(useOri)*.35, np.cos(useOri)*.35) # Set stimulus parameters
+            gabor.ori = 180*useOri/np.pi + 270 # Grating orthogonal to positional angle
+            onoffVisual(1,1) # Make stimulus visible
+            win.flip() # Update window
+            frames = 0 # Reset frame counter
+            sflag = True # Trigger gabor animation in main loop
+        elif data is 'P':  # Look for S2 trigger ('Q')
+            onoffVisual(0,1) # Turn off S1 stimulus
+            win.flip() #Update window
+            sflag = False #Trigger end of frames in main loop also
+        f.write(data) # Write all data to file
 
 def serInitialization():
     # Set up arduino serial connection
@@ -134,7 +135,7 @@ def serInitialization():
         print "Error: serial port cannot be initialized"
         quit()
 
-#%% Setup: info and file handling *=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=
+#%% Setup: info and file handling /////////////////////////////////////////////////////////////////////////////////////////////////////////////
 # Set up communcation with arduino
 arduino = serInitialization()
 
@@ -172,7 +173,7 @@ sflag = False
 global dataBuffer
 dataBuffer = [0,0]
 
-#%% Setup: Serial communication and presentation window *=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=*=
+#%% Setup: Serial communication and presentation window ///////////////////////////////////////////////////////////////////////////////////
 # Create visual stimulation window
 win = visual.Window(size=(512,512), winType='pyglet', screen=0, fullscr=False, units='height')
 
@@ -182,7 +183,7 @@ gabor.setAutoDraw(True)  # Automatically draw every frame
 gabor.autoLog = False # Turn off messages about phase changes (or it will go crazy)
 
 # Generate the visual stimulus set (6 orientations)
-vStimOri = [0,60,120,180,240,300]
+vStimOri = np.pi*np.array([0,60,120,180,240,300])/180
 
 # Generate center reference cross in visual stimulus
 line1 = visual.Line(win, start=(-.05,0), end=(.05,0))
@@ -216,7 +217,7 @@ while not doRun:
 
 
 
-#%% Run main loop
+#%% Run main loop /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 # Run protocol
 tStim = 1 # Stimulus presentation duration (s)
 framerate = 60 # screen refresh rate (make sure this is correct, it's possible to get this automatically via monotor module in psychopy)
@@ -226,7 +227,7 @@ while doRun:
     # Get arduino data
     checkArduino()
 
-    # Run Gabor animation if time
+    # Run Gabor animation if triggered by arduino
     if sflag and frames < framerate*tStim:
         frames += 1 # Keep track of frames
         gabor.setPhase(0.1, '+')
