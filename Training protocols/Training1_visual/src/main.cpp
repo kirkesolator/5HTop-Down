@@ -12,11 +12,11 @@
 
 
 //:_:_:_:_:_:_:_:_:_:_:_:_:_:_:_:_: TRAINING :_:_:_:_:_:_:_:_:_:_:_:_:_:_:_:_:
-  const int stateDepVec[6] = {1,2,3,4,5,0};
+  const int stateDepVec[7] = {1,2,3,4,5,6,0};
 
 //:_:_:_:_:_:_:_:_:_:_:_:_:_:_:_:_: VARIABLES :_:_:_:_:_:_:_:_:_:_:_:_:_:_:_:_:
   // ---General variables
-    int outPins[9] = {22,23,24,25,26,27,28,29,2}; // Needs to be filled with actual output pin IDs (EXCLUDING lick detector pin)
+    int outPins[10] = {22,23,24,25,26,27,28,29,2,13}; // Needs to be filled with actual output pin IDs (EXCLUDING lick detector pin)
     bool doRun = false;
     int state = 0;
     int nextstate = 0;
@@ -26,7 +26,19 @@
     const int tS1 = 1000;   // S1 stimulus duration (ms)
     const int tS2 = 1000;   // S2 stimulus duration (ms)
     int S2id = 0;           // S2 odor identity
-    const int vDelay = 50;  // S1 onset/offset delay because of serial port
+    const int vDelay = 100;  // S1 onset/offset delay because of serial port
+    
+    const int nOdors = 4;
+    int odorSel[2][nOdors] = {
+      {1,2,3,4},
+      {1,1,0,0}
+    };
+    int odorProb[4][6] = {
+      { 0, 1, 1, 2, 2, 3},
+      { 1, 0, 2, 1, 3, 2},
+      {10,10,10,10,10,10},
+      {90,90,90,90,90,90}
+    };
 
     // Olfactometer
       const int nStim = 7;
@@ -78,7 +90,7 @@
     int valTM = analogRead(pinTM);
 
     // ---Reward variables
-    unsigned int pReward[nTrialTypes] = {100,100,50,50,0,0}; // TODO:+++ THIS IS WRONG, NEED TO USE THE ODOR ID INSTEAD
+    unsigned int pReward[nOdors] = {100,100,0,0}; // TODO:+++ THIS IS WRONG, NEED TO USE THE ODOR ID INSTEAD
     int pinReward[1] = {8};
 
   // ---Random generator variables
@@ -309,11 +321,13 @@
         tOffset = random(tOffsetR[0],tOffsetR[1]); // Input is [min,max] as defined in tOffsetR
 
         // 6. Determine this trial's reward outcome 
-        if(random(99) < pReward[vecBlock[currentTrial]]){
-          giveReward = true;
+        if(random(100) > odorProb[2][vecBlock[currentTrial]]){
+          S2id = odorProb[0][vecBlock[currentTrial]];
+          giveReward = odorSel[1][S2id];
         }
         else{
-          giveReward = false;
+          S2id = odorProb[1][vecBlock[currentTrial]];
+          giveReward = odorSel[1][S2id];
         }
 
         // 7. Update trial counter
@@ -335,9 +349,6 @@
         // 10. Define next transition state
         transition(stateDepVec[0]);
         break;
-
-        // Figure out this trial's S2 odor identity
-        S2id = 0;
 
       case 1: // Turn on S1
         bgtimer(tS1);
@@ -366,7 +377,9 @@
         digitalWrite(13,HIGH);
         bgtimer(tS2);
         transition(stateDepVec[3]);
-        Serial.print("\nS3:"); // Trial ID event key
+        Serial.print("\nS3"); // Trial ID event key
+        Serial.print(S2id);
+        Serial.print(":");
         Serial.println(millis()); // Time stamp
         break;
 
@@ -389,6 +402,7 @@
           Serial.print("\nS5:"); // Trial ID event key
         }
         else{
+          output(pinReward,1,LOW);
           Serial.print("\nS6:"); // Trial ID event key
         }
         bgtimer(tReward);

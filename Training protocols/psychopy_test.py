@@ -6,7 +6,7 @@ import serial, os, time
 from serial.tools import list_ports
 import matplotlib.pyplot as plt
 
-# Keystroke detection things
+# Keystroke detection packages
 # OS dependencies:
 if os.name == 'nt': #windows
     import msvcrt
@@ -214,6 +214,7 @@ while not doRun:
                 arduino.write('S')
                 doRun = True
                 print "Starting behavioural protocol"
+                f.write('\n\nBehavioural protocol started: ' + dt.datetime.now().strftime("%Y%m%d%H%M%S") + '\n\n')
 
 
 
@@ -256,6 +257,7 @@ while doRun:
             keyMe = msvcrt.getch()
             if ord(keyMe) is 27:
                 print "Quitting behavioural protocol"
+                f.write('\n\nBehavioural protocol ended: ' + dt.datetime.now().strftime("%Y%m%d%H%M%S"))
                 f.close()
                 os.chdir(path)
                 arduino.flush()
