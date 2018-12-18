@@ -320,7 +320,7 @@
         // 5. Figure out this trial's random reward time offset
         tOffset = random(tOffsetR[0],tOffsetR[1]); // Input is [min,max] as defined in tOffsetR
 
-        // 6. Determine this trial's reward outcome 
+        // 6. Determine this trial's odor and reward outcome 
         if(random(100) > odorProb[2][vecBlock[currentTrial]]){
           S2id = odorProb[0][vecBlock[currentTrial]];
           giveReward = odorSel[1][S2id];
