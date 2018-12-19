@@ -8,7 +8,7 @@ from serial.tools import list_ports
 # Keystroke detection packages
 # OS dependencies:
 if os.name == 'nt': #windows
-    import msvcrt
+    import msvcrt 
 else: # OSX/linux
     import sys
     import termios
