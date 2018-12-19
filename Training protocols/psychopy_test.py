@@ -97,7 +97,7 @@ def onoffVisual(cVal1, cVal2):
 def checkArduino():
     # waiting = arduino.in_waiting  # find num of bytes currently waiting in hardware
     # buffer += [chr(c) for c in port.read(waiting)] # read them, convert to ascii
-    global sflag, frames
+    global sflag, frames, trialCount
     data = arduino.read(size=1) # Read from serial only ONE byte at the time
     if data:
         # Make your own 2 element buffer
@@ -111,10 +111,13 @@ def checkArduino():
             win.flip() # Update window
             frames = 0 # Reset frame counter
             sflag = True # Trigger gabor animation in main loop
-        elif data is 'P':  # Look for S2 trigger ('Q')
+        elif data is 'W':  # Look for S2 trigger ('Q')
             onoffVisual(0,1) # Turn off S1 stimulus
             win.flip() #Update window
             sflag = False #Trigger end of frames in main loop also
+        elif data is 'Z':
+            trialCount += 1
+            print('Trial ' + str(trialCount))
         f.write(data) # Write all data to file
 
 def serInitialization():
@@ -222,7 +225,8 @@ while not doRun:
 # Run protocol
 tStim = 1 # Stimulus presentation duration (s)
 framerate = 60 # screen refresh rate (make sure this is correct, it's possible to get this automatically via monotor module in psychopy)
-global frames
+global trialCount, frames
+trialCount = 0
 frames = 0
 while doRun:
     # Get arduino data

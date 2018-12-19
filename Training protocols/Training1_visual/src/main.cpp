@@ -12,16 +12,19 @@
 
 
 //:_:_:_:_:_:_:_:_:_:_:_:_:_:_:_:_: TRAINING :_:_:_:_:_:_:_:_:_:_:_:_:_:_:_:_:
-  const int stateDepVec[7] = {1,2,3,4,5,6,0};
+  // const int stateDepVec[7] = {1,2,3,4,5,6,0}; // Full stimulus
+  const int stateDepVec[7] = {3,2,3,4,5,6,0}; // Only odors
+  // const int stateDepVec[7] = {1,2,4,4,5,6,0}; // Only visual
+  // const int stateDepVec[7] = {5,2,4,4,5,6,0}; // Only reward
+  bool rewardEvery = false;
 
 //:_:_:_:_:_:_:_:_:_:_:_:_:_:_:_:_: VARIABLES :_:_:_:_:_:_:_:_:_:_:_:_:_:_:_:_:
-  // ---General variables
-    int outPins[10] = {22,23,24,25,26,27,28,29,2,13}; // Needs to be filled with actual output pin IDs (EXCLUDING lick detector pin)
-    bool doRun = false;
-    int state = 0;
-    int nextstate = 0;
-    bool giveReward; 
-  
+  // ---Time variables
+    const int tITI = 1000;  // Inter-trial interval (ms)
+    const int tReward = 20; // Reward duration (ms)
+    const int tOffsetR[2] = {200, 800}; // Random wait range for reward onset after S1 offset (ms)
+    int tOffset;
+
   // ---Stimulus varibles
     const int tS1 = 1000;   // S1 stimulus duration (ms)
     const int tS2 = 1000;   // S2 stimulus duration (ms)
@@ -39,7 +42,7 @@
       {10,10,10,10,10,10},
       {90,90,90,90,90,90}
     };
-
+    
     // Olfactometer
       const int nStim = 7;
       int stimPins[4][nStim]; // Empty array to map pins to laters
@@ -54,6 +57,13 @@
       int nPins = sizeof(outPins)/sizeof(outPins[0]);
       const int defaultStim = 0; // All zeros will leave olfactometer in exhaust mode (no odors or clean channel)
 
+  // ---General variables
+    int outPins[10] = {22,23,24,25,26,27,28,29,2,13}; // Needs to be filled with actual output pin IDs (EXCLUDING lick detector pin)
+    bool doRun = false;
+    int state = 0;
+    int nextstate = 0;
+    bool giveReward; 
+  
   // ---Lick detector variables
     const int interruptPin = 2; // This lick detector input MUST be either of {2,3,18,19,20,21} for interrupt to work properly
     int lickState = 0;
@@ -63,12 +73,6 @@
   // ---Serial communication
     int incomingByte = 0;
     const unsigned int rateBaud = 28800; // Baud rate for serial com. !!CRITICAL that this is same in python script!!
-
-  // ---Time variables
-    const int tITI = 1000;  // Inter-trial interval (ms)
-    const int tReward = 20; // Reward duration (ms)
-    const int tOffsetR[2] = {200, 800}; // Random wait range for reward onset after S1 offset (ms)
-    int tOffset;
 
   // ---f(timer variables)
     unsigned long pTimer;
@@ -283,7 +287,7 @@
         if(analogRead(pinTM) != valTM){
           valTM = analogRead(pinTM);
           pTimer2 = millis();
-          Serial.print(" T"); // Trial ID event key
+          Serial.print(" $"); // Trial ID event key
           Serial.print(valTM); // Trial ID
           Serial.print(":");
           Serial.print(pTimer2); // Time stamp
@@ -308,7 +312,7 @@
             swap(&vecBlock[k], &vecBlock[j]); // Swap vecBlock[k] with the element at random index
           }
           Nblocks += 1; // Update block counter
-          Serial.print(":Bn"); // Trial ID event key
+          Serial.print(":X"); // Trial ID event key
           Serial.print(Nblocks); // Trial ID
           Serial.print(":");
           Serial.println(millis()); // Time stamp
@@ -329,10 +333,13 @@
           S2id = odorProb[1][vecBlock[currentTrial]];
           giveReward = odorSel[1][S2id];
         }
+        if(rewardEvery){
+          giveReward = true;
+        }
 
         // 7. Update trial counter
         Ntrials += 1;
-        Serial.print("Tn"); // Trial ID event key
+        Serial.print("Z"); // Trial ID event key
         Serial.print(Ntrials); // Trial ID
         Serial.print(":");
         Serial.println(millis()); // Time stamp
@@ -340,7 +347,7 @@
         // 9. Send serial data to python
           // 1. Lick data
           for (i = 0; i < lickCount; i++){
-            Serial.print("L"); // Lick event key
+            Serial.print("€"); // Lick event key
             Serial.print(vecLick[0][i]);
             Serial.print(":"); // Lick timestamp key
             Serial.println(vecLick[1][i]);
@@ -363,7 +370,7 @@
       case 2: // Turn off S1 
         transition(stateDepVec[2]);
         bgtimer(vDelay);
-        Serial.print("\nP:"); // Trial ID event key
+        Serial.print("\nW:"); // Trial ID event key
         Serial.println(millis()); // Time stamp
         digitalWrite(13, LOW);
         break;
@@ -377,7 +384,7 @@
         digitalWrite(13,HIGH);
         bgtimer(tS2);
         transition(stateDepVec[3]);
-        Serial.print("\nS3"); // Trial ID event key
+        Serial.print("\nE"); // Trial ID event key
         Serial.print(S2id);
         Serial.print(":");
         Serial.println(millis()); // Time stamp
@@ -392,18 +399,18 @@
         digitalWrite(13,LOW);
         transition(stateDepVec[4]);
         bgtimer(tOffset);
-        Serial.print("\nS4:"); // Trial ID event key
+        Serial.print("\nR:"); // Trial ID event key
         Serial.println(millis()); // Time stamp
         break;
 
       case 5: // Turn on reward
         if(giveReward){
           output(pinReward,1,HIGH);
-          Serial.print("\nS5:"); // Trial ID event key
+          Serial.print("\nT:"); // Trial ID event key
         }
         else{
           output(pinReward,1,LOW);
-          Serial.print("\nS6:"); // Trial ID event key
+          Serial.print("\nY:"); // Trial ID event key
         }
         bgtimer(tReward);
         Serial.println(millis()); // Time stamp
@@ -416,7 +423,7 @@
         }
         transition(stateDepVec[6]);
         bgtimer(0);
-        Serial.print("\nS7:"); // Trial ID event key
+        Serial.print("\nU:"); // Trial ID event key
         Serial.println(millis()); // Time stamp
         break;
 
