@@ -4,7 +4,6 @@ import numpy as np
 import datetime as dt
 import serial, os, time
 from serial.tools import list_ports
-import matplotlib.pyplot as plt
 
 # Keystroke detection packages
 # OS dependencies:
